@@ -138,11 +138,55 @@
         margin: 0;
       }
 
+      .footer-meta,
+      .social-links {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .social-links {
+        gap: 0.8rem;
+      }
+
+      .social-links::before {
+        color: var(--line);
+        content: "/";
+      }
+
+      .social-links a {
+        color: var(--paper);
+        text-decoration: none;
+        text-underline-offset: 0.25em;
+      }
+
+      .social-links a:hover,
+      .social-links a:focus-visible {
+        color: var(--accent);
+        text-decoration: underline;
+      }
+
+      .social-links a:focus-visible {
+        border-radius: 0.1rem;
+        outline: 2px solid var(--accent);
+        outline-offset: 0.25rem;
+      }
+
       @media (max-width: 38rem) {
         header,
         footer {
           align-items: flex-start;
           flex-direction: column;
+        }
+
+        .footer-meta {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .social-links::before {
+          display: none;
         }
 
         h1 {
@@ -169,7 +213,23 @@
 
       <footer>
         <p>© 2026 The Legal Chronicles</p>
-        <p>Independent legal publishing</p>
+        <div class="footer-meta">
+          <p>Independent legal publishing</p>
+          <nav class="social-links" aria-label="Social media">
+            <a
+              href="https://x.com/legalchronicle_"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="The Legal Chronicles on X"
+            >X</a>
+            <a
+              href="https://www.linkedin.com/company/thelegalchronicles/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="The Legal Chronicles on LinkedIn"
+            >LinkedIn</a>
+          </nav>
+        </div>
       </footer>
     </main>
   </body>
