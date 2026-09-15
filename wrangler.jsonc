@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "the-legal-chronicles",
+  "compatibility_date": "2026-09-15",
+  "assets": {
+    "directory": "./coming-soon"
+  }
+}
