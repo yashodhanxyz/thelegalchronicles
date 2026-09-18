@@ -1,0 +1,61 @@
+{
+  "source": "Supreme Court Reports (SCR)",
+  "observed_on": "2026-09-16",
+  "scope": "First five judgments visible in the live 2026 pilot session",
+  "records": [
+    {
+      "position": 1,
+      "source_path": "2026_8_480_488",
+      "neutral_citation": "2026 INSC 839",
+      "title": "Mageba Bridge Products Private Limited v. M/s Trade Centre",
+      "document": { "characters": 18187, "words": 3056, "paragraphs": 51, "footnote_links": 3, "contains_scripts_inside_document": false, "inline_event_handlers_inside_document": 0 },
+      "sections_present": { "issue_for_consideration": true, "headnotes": true, "acts": true, "keywords": true, "case_law_cited": true, "case_arising_from": true, "appearances_for_parties": true, "result_of_the_case": true }
+    },
+    {
+      "position": 2,
+      "source_path": "2026_8_564_574",
+      "neutral_citation": "2026 INSC 837",
+      "title": "M/s Carestream Health India Pvt. Ltd. v. Commissioner of Customs",
+      "document": { "characters": 22862, "words": 3658, "paragraphs": 59, "footnote_links": 2, "contains_scripts_inside_document": false, "inline_event_handlers_inside_document": 0 },
+      "sections_present": { "issue_for_consideration": true, "headnotes": true, "acts": true, "keywords": true, "case_law_cited": true, "case_arising_from": true, "appearances_for_parties": true, "result_of_the_case": true }
+    },
+    {
+      "position": 3,
+      "source_path": "2026_8_489_505",
+      "neutral_citation": "2026 INSC 847",
+      "title": "Karnataka Power Transmission Corporation Limited v. Rekha & Ors.",
+      "document": { "characters": 33142, "words": 5598, "paragraphs": 113, "footnote_links": 16, "contains_scripts_inside_document": false, "inline_event_handlers_inside_document": 0 },
+      "sections_present": { "issue_for_consideration": true, "headnotes": true, "acts": true, "keywords": true, "case_law_cited": true, "case_arising_from": true, "appearances_for_parties": true, "result_of_the_case": true }
+    },
+    {
+      "position": 4,
+      "source_path": "2026_8_623_644",
+      "neutral_citation": "2026 INSC 828",
+      "title": "National Projects Construction Corporation Ltd. v. Ishvakoo (India) Pvt. Ltd.",
+      "document": { "characters": 41180, "words": 6830, "paragraphs": 121, "footnote_links": 0, "contains_scripts_inside_document": false, "inline_event_handlers_inside_document": 0 },
+      "sections_present": { "issue_for_consideration": true, "headnotes": true, "acts": true, "keywords": true, "case_law_cited": true, "case_arising_from": true, "appearances_for_parties": true, "result_of_the_case": true }
+    },
+    {
+      "position": 5,
+      "source_path": "2026_8_506_524",
+      "neutral_citation": "2026 INSC 825",
+      "title": "Rahul v. State of Uttar Pradesh and Another",
+      "document": { "characters": 40358, "words": 6446, "paragraphs": 117, "footnote_links": 10, "contains_scripts_inside_document": false, "inline_event_handlers_inside_document": 0 },
+      "sections_present": { "issue_for_consideration": true, "headnotes": true, "acts": true, "keywords": true, "case_law_cited": true, "case_arising_from": true, "appearances_for_parties": true, "result_of_the_case": true }
+    }
+  ],
+  "summary": {
+    "records_checked": 5,
+    "word_count_min": 3056,
+    "word_count_max": 6830,
+    "paragraph_count_min": 51,
+    "paragraph_count_max": 121,
+    "all_required_sections_present": true,
+    "scripts_or_inline_handlers_found_inside_documents": false
+  },
+  "notes": [
+    "The source response may include modal-navigation JavaScript and embedded CSS outside the legal document container; these are not part of the stored judgment body.",
+    "Every measured body is longer than the initial 1,500–2,500-word planning range, so the product must not impose that word limit.",
+    "These checks validate five representative 2026 judgments. Historical and atypical judgments may use different markup and need separate sampling before the full archive import."
+  ]
+}

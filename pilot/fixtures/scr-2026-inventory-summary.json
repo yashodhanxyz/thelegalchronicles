@@ -1,0 +1,45 @@
+{
+  "source": "Supreme Court Reports (SCR)",
+  "observed_on": "2026-09-17",
+  "scope": "All SCR citation-volume filters exposed for citation year 2026",
+  "citation_year": 2026,
+  "records": 279,
+  "position_min": 1,
+  "position_max": 279,
+  "unique_source_keys": 279,
+  "duplicate_source_keys": 0,
+  "duplicate_neutral_citation_values": 0,
+  "canonical_file_bytes": 351750,
+  "canonical_file_sha256": "8ef40d4e98bcb8fea13b55852defb659424b0735ca558b4078dc4db9356808da",
+  "volume_counts": {
+    "1": 64,
+    "2": 34,
+    "3": 32,
+    "4": 32,
+    "5": 30,
+    "6": 22,
+    "7": 34,
+    "8": 31
+  },
+  "actions_listed": {
+    "split_view": 279,
+    "html_view": 279,
+    "flip_view": 279,
+    "pdf": 279
+  },
+  "optional_source_fields_missing": {
+    "coram_source": 1,
+    "disposal_nature_source": 18
+  },
+  "collection_method": {
+    "filter": "SCR citation year and volume",
+    "readiness_signal": "DataTables draw event after each server response",
+    "identity": "citation year, source path, and source neutral key",
+    "canonical_local_file": "data/scr-inventory-2026.ndjson"
+  },
+  "limitations": [
+    "Action counts describe controls listed in search results and do not verify the underlying asset response.",
+    "The full source NDJSON is local and gitignored; this tracked file records its validated aggregate evidence.",
+    "The source-reported 38,598 archive total has not been collected or independently reconciled."
+  ]
+}

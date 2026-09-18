@@ -2,7 +2,24 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "the-legal-chronicles",
   "compatibility_date": "2026-09-15",
+  "main": "src/worker.js",
   "assets": {
-    "directory": "./coming-soon"
-  }
+    "directory": "./coming-soon",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/judgments",
+      "/judgments/*",
+      "/api/*",
+      "/robots.txt",
+      "/sitemap.xml"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "the-legal-chronicles",
+      "database_id": "40517325-7c48-4fb9-80ac-cb47a1473a8b",
+      "migrations_dir": "db/migrations"
+    }
+  ]
 }

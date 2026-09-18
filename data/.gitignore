@@ -1,0 +1,5 @@
+scr-inventory.ndjson
+scr-inventory.checkpoint.json
+scr-inventory-2026.ndjson
+scr-2026-import.sql
+*.tmp

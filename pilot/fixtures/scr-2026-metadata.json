@@ -1,0 +1,128 @@
+{
+  "source": "Supreme Court Reports (SCR)",
+  "source_url": "https://scr.sci.gov.in/scrsearch/",
+  "observed_on": "2026-09-16",
+  "scope": "First ten records visible in the live 2026 pilot session",
+  "records": [
+    {
+      "position": 1,
+      "title_source": "MAGEBA BRIDGE PRODUCTS PRIVATE LIMITED versus M/S TRADE CENTRE",
+      "scr_citation": "[2026] 8 S.C.R. 480",
+      "neutral_citation": "2026 INSC 839",
+      "coram_source": "K. VINOD CHANDRAN, J.B. PARDIWALA",
+      "decision_date_source": "12-08-2026",
+      "case_number_source": "CIVIL APPEAL No. 10658/2026",
+      "disposal_nature_source": "Appeal(s) allowed",
+      "bench_size_source": "2 Judges",
+      "source_lookup": { "citation_year": 2026, "path": "2026_8_480_488", "neutral_key": "2026INSC839" }
+    },
+    {
+      "position": 2,
+      "title_source": "M/S CARESTREAM HEALTH INDIA PVT. LTD. versus COMMISSIONER OF CUSTOMS",
+      "scr_citation": "[2026] 8 S.C.R. 564",
+      "neutral_citation": "2026 INSC 837",
+      "coram_source": "SANJAY KUMAR*, SANJEEV SACHDEVA",
+      "decision_date_source": "12-08-2026",
+      "case_number_source": "CIVIL APPEAL No. 3440/2025",
+      "disposal_nature_source": "Dismissed",
+      "bench_size_source": "2 Judges",
+      "source_lookup": { "citation_year": 2026, "path": "2026_8_564_574", "neutral_key": "2026INSC837" }
+    },
+    {
+      "position": 3,
+      "title_source": "KARNATAKA POWER TRANSMISSION CORPORATION LIMITED versus REKHA & ORS",
+      "scr_citation": "[2026] 8 S.C.R. 489",
+      "neutral_citation": "2026 INSC 847",
+      "coram_source": "SANJAY KAROL*, N KOTISWAR SINGH",
+      "decision_date_source": "12-08-2026",
+      "case_number_source": "CIVIL APPEAL No. 10659/2026",
+      "disposal_nature_source": "Appeal(s) allowed",
+      "bench_size_source": "2 Judges",
+      "source_lookup": { "citation_year": 2026, "path": "2026_8_489_505", "neutral_key": "2026INSC847" }
+    },
+    {
+      "position": 4,
+      "title_source": "NATIONAL PROJECTS CONSTRUCTION CORPORATION LTD. versus ISHVAKOO (INDIA) PVT. LTD.",
+      "scr_citation": "[2026] 8 S.C.R. 623",
+      "neutral_citation": "2026 INSC 828",
+      "coram_source": "ALOK ARADHE*, K.V. VISWANATHAN",
+      "decision_date_source": "11-08-2026",
+      "case_number_source": "CIVIL APPEAL No. 5819/2025",
+      "disposal_nature_source": "Dismissed",
+      "bench_size_source": "2 Judges",
+      "source_lookup": { "citation_year": 2026, "path": "2026_8_623_644", "neutral_key": "2026INSC828" }
+    },
+    {
+      "position": 5,
+      "title_source": "RAHUL versus STATE OF UTTAR PRADESH AND ANOTHER",
+      "scr_citation": "[2026] 8 S.C.R. 506",
+      "neutral_citation": "2026 INSC 825",
+      "coram_source": "SANJAY KAROL, AUGUSTINE GEORGE MASIH*",
+      "decision_date_source": "11-08-2026",
+      "case_number_source": "CRIMINAL APPEAL No. 3774/2026",
+      "disposal_nature_source": "Appeal(s) allowed",
+      "bench_size_source": "2 Judges",
+      "source_lookup": { "citation_year": 2026, "path": "2026_8_506_524", "neutral_key": "2026INSC825" }
+    },
+    {
+      "position": 6,
+      "title_source": "SECURITIES AND EXCHANGE BOARD OF INDIA versus RAJEEV VASANT SHETH & ORS.",
+      "scr_citation": "[2026] 8 S.C.R. 525",
+      "neutral_citation": "2026 INSC 826",
+      "coram_source": "SANJAY KAROL*, N KOTISWAR SINGH",
+      "decision_date_source": "11-08-2026",
+      "case_number_source": "CIVIL APPEAL No. 4905/2022",
+      "disposal_nature_source": "Appeal(s) allowed",
+      "bench_size_source": "2 Judges",
+      "source_lookup": { "citation_year": 2026, "path": "2026_8_525_549", "neutral_key": "2026INSC826" }
+    },
+    {
+      "position": 7,
+      "title_source": "SHATRUGHN YADAV versus THE FERTILIZERS AND CHEMICALS TRAVANCORE LTD. (F.A.C.T.) AND OTHERS",
+      "scr_citation": "[2026] 8 S.C.R. 550",
+      "neutral_citation": "2026 INSC 829",
+      "coram_source": "AUGUSTINE GEORGE MASIH, SANJAY KAROL*",
+      "decision_date_source": "11-08-2026",
+      "case_number_source": "CIVIL APPEAL No. 10547/2026",
+      "disposal_nature_source": "Appeal(s) allowed",
+      "bench_size_source": "2 Judges",
+      "source_lookup": { "citation_year": 2026, "path": "2026_8_550_563", "neutral_key": "2026INSC829" }
+    },
+    {
+      "position": 8,
+      "title_source": "HARPREET SAWHNEY versus PUNEET SHARMA",
+      "scr_citation": "[2026] 8 S.C.R. 472",
+      "neutral_citation": "2026 INSC 822",
+      "coram_source": "SANJAY KAROL, N KOTISWAR SINGH*",
+      "decision_date_source": "10-08-2026",
+      "case_number_source": "CIVIL APPEAL No. 10509/2026",
+      "disposal_nature_source": "Disposed off",
+      "bench_size_source": "2 Judges",
+      "source_lookup": { "citation_year": 2026, "path": "2026_8_472_479", "neutral_key": "2026INSC822" }
+    },
+    {
+      "position": 9,
+      "title_source": "M/S BHARATIYA VIDYA BHAVAN’S PUBLIC SCHOOL versus M. VIMALA & ORS.",
+      "scr_citation": "[2026] 8 S.C.R. 575",
+      "neutral_citation": "2026 INSC 833",
+      "coram_source": "DIPANKAR DATTA*, SHEEL NAGU",
+      "decision_date_source": "06-08-2026",
+      "case_number_source": "CIVIL APPEAL No. 10600/2026",
+      "disposal_nature_source": "Appeal(s) allowed",
+      "bench_size_source": "2 Judges",
+      "source_lookup": { "citation_year": 2026, "path": "2026_8_575_589", "neutral_key": "2026INSC833" }
+    },
+    {
+      "position": 10,
+      "title_source": "COMMISSIONER OF SERVICE TAX, CHENNAI versus M/S DIEBOLD SYSTEMS (P) LTD",
+      "scr_citation": "[2026] 8 S.C.R. 453",
+      "neutral_citation": "2026 INSC 808",
+      "coram_source": "PRASHANT KUMAR MISHRA*, SHREE CHANDRASHEKHAR",
+      "decision_date_source": "06-08-2026",
+      "case_number_source": "CIVIL APPEAL No. 4708/2008",
+      "disposal_nature_source": "Dismissed",
+      "bench_size_source": "2 Judges",
+      "source_lookup": { "citation_year": 2026, "path": "2026_8_453_471", "neutral_key": "2026INSC808" }
+    }
+  ]
+}
