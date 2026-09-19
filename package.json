@@ -2,9 +2,32 @@
   "name": "thelegalchronicles",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
+    "dev": "wrangler dev --local",
+    "test": "node --test tests/*.test.mjs",
     "check": "wrangler deploy --dry-run",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "pilot:validate": "node scripts/validate-pilot.mjs",
+    "inventory:import": "node scripts/import-browser-batch.mjs",
+    "inventory:bridge": "node scripts/browser-bridge-server.mjs",
+    "inventory:summary": "node scripts/summarize-inventory.mjs data/scr-inventory-2026.ndjson",
+    "inventory:stage-year": "node scripts/stage-year-export.mjs",
+    "inventory:validate": "node scripts/validate-inventory.mjs data/scr-inventory-2026.ndjson",
+    "d1:build-import": "node scripts/build-d1-metadata-import.mjs",
+    "d1:local:migrate": "wrangler d1 migrations apply DB --local",
+    "d1:local:import": "wrangler d1 execute DB --local --file data/scr-2026-import.sql",
+    "d1:local:verify": "node scripts/validate-d1-local.mjs",
+    "d1:remote:verify": "node scripts/validate-d1-local.mjs --remote",
+    "enrichment:build-import": "node scripts/build-d1-case-enrichment-import.mjs",
+    "enrichment:local:import": "wrangler d1 execute DB --local --file data/scr-2026-enrichment-import.sql",
+    "enrichment:local:verify": "node scripts/validate-d1-enrichment-local.mjs",
+    "enrichment:remote:verify": "node scripts/validate-d1-enrichment-local.mjs --remote",
+    "ai:estimate": "node scripts/estimate-ai-cost.mjs",
+    "prototype:install": "npm --prefix prototypes/broadsheet install",
+    "prototype:dev": "npm --prefix prototypes/broadsheet run dev",
+    "prototype:build": "npm --prefix prototypes/broadsheet run build",
+    "prototype:test": "npm --prefix prototypes/broadsheet run test:sites"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

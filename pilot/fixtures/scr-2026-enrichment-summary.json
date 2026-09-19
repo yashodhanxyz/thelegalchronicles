@@ -1,0 +1,47 @@
+{
+  "source_file_name": "scr-2026-case-enrichment.jsonl",
+  "dataset_sha256": "14d6b2f77bc7f2d283b7bed632de7a0f8f82fa56e053a874321b66f2b76715f6",
+  "raw_storage_status": "local_only",
+  "raw_r2_key": null,
+  "records": 279,
+  "found": 276,
+  "not_found": 3,
+  "unique_source_cases": 275,
+  "raw_document_links": 4228,
+  "unique_case_documents": 3925,
+  "judgment_document_links": 266,
+  "verified_judgment_case_links": 276,
+  "unmatched_judgments": [
+    {
+      "enrichment_key": "scr:2026:2026_7_494_503:2026INSC661",
+      "input_case_number": "CIVIL APPEAL No. 8735/2026"
+    },
+    {
+      "enrichment_key": "scr:2026:2026_7_208_219:2026INSC629",
+      "input_case_number": "DIARYNO AND DIARYYR No. 5988/2026"
+    },
+    {
+      "enrichment_key": "scr:2026:2026_3_103_112:2026INSC148",
+      "input_case_number": "DIARYNO AND DIARYYR No. 54941/2025"
+    }
+  ],
+  "match_basis": {
+    "judgment_document_neutral_citation": 264,
+    "official_case_neutral_citation": 10,
+    "judgment_document_date": 1,
+    "official_citation_correction": 1,
+    "unmatched": 3
+  },
+  "citation_corrections": [
+    {
+      "enrichment_key": "scr:2026:2026_1_1072_1105:1072INSC2026",
+      "source_citation": "1072 INSC 2026",
+      "canonical_citation": "2026 INSC 59",
+      "verification_source_url": "https://www.sci.gov.in/?view_case_details=1&diary_no=36675&diary_year=2023"
+    }
+  ],
+  "raw_source_warnings": {
+    "records_with_placeholder_date_30_11_0001": 271,
+    "records_with_parent_relative_urls": 266
+  }
+}

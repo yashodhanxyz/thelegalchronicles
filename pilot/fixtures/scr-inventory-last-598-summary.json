@@ -1,0 +1,5 @@
+{
+  "status": "invalid_do_not_use",
+  "reason": "The sample was captured with a position-only wait against SCR's server-side DataTable. Displayed positions changed before the AJAX response replaced stale judgment rows, so the claimed closing-page coverage and availability figures are not evidence.",
+  "superseded_by": "scr-2026-inventory-summary.json"
+}

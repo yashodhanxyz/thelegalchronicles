@@ -1,0 +1,68 @@
+{
+  "source": "Supreme Court Reports (SCR)",
+  "observed_on": "2026-09-16",
+  "observed_total": 38598,
+  "batch": {
+    "records": 1000,
+    "position_min": 1,
+    "position_max": 1000,
+    "missing_source_lookup": 0,
+    "missing_scr_citation": 0,
+    "missing_neutral_citation": 0,
+    "duplicate_source_keys": 0,
+    "duplicate_neutral_citation_values": 4
+  },
+  "years": [
+    {
+      "citation_year": 2026,
+      "records": 279,
+      "split_action_listed": 279,
+      "html_action_listed": 279,
+      "pdf_action_listed": 279,
+      "multilingual_rows": 11
+    },
+    {
+      "citation_year": 2025,
+      "records": 721,
+      "split_action_listed": 721,
+      "html_action_listed": 721,
+      "pdf_action_listed": 721,
+      "multilingual_rows": 108
+    }
+  ],
+  "duplicate_neutral_citations": [
+    {
+      "neutral_citation": "2025 INSC 1285",
+      "records": [
+        { "position": 413, "source_path": "2025_11_406_422", "title": "STATE OF CHHATTISGARH versus AMIT AISHWARYA JOGI" },
+        { "position": 430, "source_path": "2025_10_1569_1585", "title": "RITU GARG & ORS. versus BOARD OF GOVERNORS BOG & ORS." }
+      ]
+    },
+    {
+      "neutral_citation": "2025 INSC 1308",
+      "records": [
+        { "position": 336, "source_path": "2025_12_417_425", "title": "THE STATE OF JHARKHAND versus THE INDIAN BUILDERS JAMSHEDPUR" },
+        { "position": 393, "source_path": "2025_12_152_166", "title": "SURENDRA KOLI versus THE STATE OF UTTAR PRADESH & ANR." }
+      ]
+    },
+    {
+      "neutral_citation": "2025 INSC 1352",
+      "records": [
+        { "position": 371, "source_path": "2025_11_904_924", "title": "THE GOVERNMENT OF TAMIL NADU, REP. BY ITS SECRETARY, TRANSPORT DEPARTMENT & ORS. versus P.R. JAGANATHAN & ORS ETC." },
+        { "position": 380, "source_path": "2025_11_1457_1472", "title": "SHRI DIGANT versus M/S P.D.T. TRADING CO. & ORS." }
+      ]
+    },
+    {
+      "neutral_citation": "2025 INSC 518",
+      "records": [
+        { "position": 823, "source_path": "2025_5_2593_2617", "title": "THE STATE OF KERALA ETC. ETC. versus THE PRINCIPAL, KMCT MEDICAL COLLEGE AND ORS. ETC. ETC." },
+        { "position": 974, "source_path": "2025_4_2497_2499", "title": "SACHIN versus THE STATE OF MAHARASHTRA" }
+      ]
+    }
+  ],
+  "interpretation": [
+    "Action counts describe controls shown in the result rows; they do not yet prove that the underlying assets are available.",
+    "Neutral citation is not safe as a unique database key in the live source data.",
+    "The source year/path/neutral-key tuple was complete and unique for all 1,000 inspected rows."
+  ]
+}
