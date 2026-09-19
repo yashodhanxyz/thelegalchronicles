@@ -186,7 +186,12 @@ test("read-only judgment APIs return records, relationships, filters, and pagina
   const listEnv = {
     ...assetsResponse(),
     DB: databaseBatch([
-      { results: [{ slug: "example-case", title_source: "Example v. State" }] },
+      { results: [{
+        slug: "example-case",
+        title_source: "Example v. State",
+        case_lookup_status: "found",
+        case_verification_status: "verified",
+      }] },
       { results: [{ total: 1 }] },
     ]),
   };
@@ -196,6 +201,7 @@ test("read-only judgment APIs return records, relationships, filters, and pagina
   );
   const list = await listResponse.json();
   assert.equal(list.data[0].slug, "example-case");
+  assert.equal(list.data[0].case_verification_status, "verified");
   assert.deepEqual(list.pagination, { page: 1, limit: 10, total: 1, pages: 1 });
 
   const detailEnv = {
@@ -204,6 +210,30 @@ test("read-only judgment APIs return records, relationships, filters, and pagina
       { results: [{ slug: "example-case", content_status: "metadata_only" }] },
       { results: [{ slug: "judge-example", name_source: "Justice Example" }] },
       { results: [{ asset_kind: "source_pdf", action_status: "listed" }] },
+      { results: [{
+        input_case_number: "Civil Appeal No. 1/2026",
+        lookup_status: "found",
+        match_basis: "judgment_document_neutral_citation",
+        verification_status: "verified",
+        source_retrieved_at: "2026-09-19T10:00:00.000Z",
+        source_case_identifier: "diary:1:2026",
+        source_url: "https://www.sci.gov.in/case-status/",
+        case_title_source: "Example v. State",
+        official_case_number_source: "1",
+        case_year: 2026,
+        case_status_source: "DISPOSED",
+      }] },
+      { results: [{
+        url: "https://api.sci.gov.in/jonew/judis/1.pdf",
+        label_source: "Judgment 2026 INSC 1",
+        document_type_source: "Judgment",
+        document_date_source: "02-01-2026",
+        document_date_iso: "2026-01-02",
+        neutral_citation_source: "2026 INSC 1",
+        is_primary: 1,
+        match_basis: "citation_and_date",
+      }] },
+      { results: [] },
     ]),
   };
   const detailResponse = await worker.fetch(
@@ -213,6 +243,13 @@ test("read-only judgment APIs return records, relationships, filters, and pagina
   const detail = await detailResponse.json();
   assert.equal(detail.data.judges.length, 1);
   assert.equal(detail.data.source_assets.length, 1);
+  assert.equal(detail.data.case_enrichment.verification_status, "verified");
+  assert.equal(detail.data.case_enrichment.case.case_status_source, "DISPOSED");
+  assert.equal(detail.data.case_enrichment.official_documents[0].is_primary, true);
+  assert.deepEqual(detail.sources, [
+    "Supreme Court Reports (SCR)",
+    "Supreme Court of India case status",
+  ]);
 
   const filterEnv = {
     ...assetsResponse(),
@@ -230,6 +267,39 @@ test("read-only judgment APIs return records, relationships, filters, and pagina
   const filters = await filterResponse.json();
   assert.equal(filters.data.years[0].records, 279);
   assert.equal(filters.data.judges[0].label, "Justice Example");
+});
+
+test("judgment API keeps unmatched case enrichment explicit without inventing a case", async () => {
+  const env = {
+    ...assetsResponse(),
+    DB: databaseBatch([
+      { results: [{ slug: "unmatched-case", content_status: "metadata_only" }] },
+      { results: [] },
+      { results: [] },
+      { results: [{
+        input_case_number: "Civil Appeal No. 8735/2026",
+        lookup_status: "not_found",
+        match_basis: "unmatched",
+        verification_status: "unmatched",
+        source_retrieved_at: "2026-09-19T10:00:00.000Z",
+        source_case_identifier: null,
+      }] },
+      { results: [] },
+      { results: [] },
+    ]),
+  };
+  const response = await worker.fetch(
+    new Request("https://thelegalchronicles.com/api/v1/judgments/unmatched-case"),
+    env,
+  );
+  const detail = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(detail.data.case_enrichment.lookup_status, "not_found");
+  assert.equal(detail.data.case_enrichment.verification_status, "unmatched");
+  assert.equal(detail.data.case_enrichment.case, null);
+  assert.deepEqual(detail.data.case_enrichment.official_documents, []);
+  assert.doesNotMatch(JSON.stringify(detail), /raw_payload|r2_key|dataset_sha256/);
 });
 
 test("sitemap includes only records supplied by the published-record query", async () => {

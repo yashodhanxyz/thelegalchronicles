@@ -2,4 +2,7 @@ scr-inventory.ndjson
 scr-inventory.checkpoint.json
 scr-inventory-2026.ndjson
 scr-2026-import.sql
+scr-2026-case-enrichment.jsonl
+scr-2026-enrichment-import.sql
+scr-2026-enrichment-validation.json
 *.tmp

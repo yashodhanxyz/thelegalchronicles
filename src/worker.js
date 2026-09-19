@@ -416,8 +416,12 @@ async function apiJudgments(request, env) {
         j.slug, j.title_source, j.scr_citation, j.neutral_citation,
         j.decision_date_iso, j.case_number_source, j.case_type,
         j.disposal_nature_source, j.bench_size, j.bench_size_source,
-        j.coram_source, j.result_excerpt_source, j.content_status
+        j.coram_source, j.result_excerpt_source, j.content_status,
+        enrichment.lookup_status AS case_lookup_status,
+        enrichment.verification_status AS case_verification_status
       FROM judgments AS j
+      LEFT JOIN judgment_case_enrichments AS enrichment
+        ON enrichment.judgment_id = j.id
       WHERE ${where}
       ORDER BY j.decision_date_iso DESC, j.id DESC
       LIMIT ?6 OFFSET ?7
@@ -439,7 +443,14 @@ async function apiJudgments(request, env) {
 }
 
 async function apiJudgment(slug, env) {
-  const [recordResult, judgesResult, assetsResult] = await env.DB.batch([
+  const [
+    recordResult,
+    judgesResult,
+    assetsResult,
+    enrichmentResult,
+    caseDocumentsResult,
+    citationAliasesResult,
+  ] = await env.DB.batch([
     env.DB.prepare(`
       SELECT
         slug, title_source, scr_citation, neutral_citation,
@@ -463,16 +474,139 @@ async function apiJudgment(slug, env) {
       JOIN judgments AS judgment ON judgment.id = asset.judgment_id
       WHERE judgment.slug = ?1 ORDER BY asset_kind
     `).bind(slug),
+    env.DB.prepare(`
+      SELECT
+        enrichment.input_case_number,
+        enrichment.lookup_status,
+        enrichment.match_basis,
+        enrichment.verification_status,
+        enrichment.source_retrieved_at,
+        court_case.source_case_identifier,
+        court_case.source_url,
+        court_case.matched_case_number_source,
+        court_case.title_source AS case_title_source,
+        court_case.petitioner_source,
+        court_case.respondent_source,
+        court_case.court_source,
+        court_case.bench_source,
+        court_case.case_type_source,
+        court_case.case_number_source AS official_case_number_source,
+        court_case.case_year,
+        court_case.diary_number_source,
+        court_case.filing_date_source,
+        court_case.filing_date_iso,
+        court_case.registration_date_source,
+        court_case.registration_date_iso,
+        court_case.decision_date_source AS official_decision_date_source,
+        court_case.decision_date_iso AS official_decision_date_iso,
+        court_case.disposal_date_source,
+        court_case.disposal_date_iso,
+        court_case.case_status_source,
+        court_case.disposal_nature_source AS official_disposal_nature_source,
+        court_case.category_source,
+        court_case.official_neutral_citations_source,
+        court_case.last_hearing_date_source,
+        court_case.last_hearing_date_iso,
+        court_case.next_hearing_date_source,
+        court_case.next_hearing_date_iso
+      FROM judgment_case_enrichments AS enrichment
+      JOIN judgments AS judgment ON judgment.id = enrichment.judgment_id
+      LEFT JOIN court_cases AS court_case ON court_case.id = enrichment.court_case_id
+      WHERE judgment.slug = ?1
+      LIMIT 1
+    `).bind(slug),
+    env.DB.prepare(`
+      SELECT
+        document.document_url_normalized AS url,
+        document.label_source,
+        document.document_type_source,
+        document.document_date_source,
+        document.document_date_iso,
+        document.neutral_citation_source,
+        CASE WHEN judgment_document.document_id IS NULL THEN 0 ELSE 1 END AS is_primary,
+        judgment_document.match_basis
+      FROM judgment_case_enrichments AS enrichment
+      JOIN judgments AS judgment ON judgment.id = enrichment.judgment_id
+      JOIN court_case_documents AS document ON document.court_case_id = enrichment.court_case_id
+      LEFT JOIN judgment_case_documents AS judgment_document
+        ON judgment_document.judgment_id = judgment.id
+       AND judgment_document.document_id = document.id
+      WHERE judgment.slug = ?1
+      ORDER BY is_primary DESC, document.document_date_iso DESC, document.source_position
+    `).bind(slug),
+    env.DB.prepare(`
+      SELECT
+        alias.source_citation,
+        alias.canonical_citation,
+        alias.authority,
+        alias.verification_source_url,
+        alias.verified_at,
+        alias.notes
+      FROM judgment_citation_aliases AS alias
+      JOIN judgments AS judgment ON judgment.id = alias.judgment_id
+      WHERE judgment.slug = ?1
+      ORDER BY alias.source_citation, alias.canonical_citation
+    `).bind(slug),
   ]);
   const record = recordResult.results?.[0];
   if (!record) return jsonResponse({ error: "Judgment not found" }, 404);
+  const enrichment = enrichmentResult.results?.[0] || null;
+  const caseRecord = enrichment?.source_case_identifier ? {
+    source_case_identifier: enrichment.source_case_identifier,
+    source_url: enrichment.source_url,
+    matched_case_number_source: enrichment.matched_case_number_source,
+    title_source: enrichment.case_title_source,
+    petitioner_source: enrichment.petitioner_source,
+    respondent_source: enrichment.respondent_source,
+    court_source: enrichment.court_source,
+    bench_source: enrichment.bench_source,
+    case_type_source: enrichment.case_type_source,
+    case_number_source: enrichment.official_case_number_source,
+    case_year: enrichment.case_year,
+    diary_number_source: enrichment.diary_number_source,
+    filing_date_source: enrichment.filing_date_source,
+    filing_date_iso: enrichment.filing_date_iso,
+    registration_date_source: enrichment.registration_date_source,
+    registration_date_iso: enrichment.registration_date_iso,
+    decision_date_source: enrichment.official_decision_date_source,
+    decision_date_iso: enrichment.official_decision_date_iso,
+    disposal_date_source: enrichment.disposal_date_source,
+    disposal_date_iso: enrichment.disposal_date_iso,
+    case_status_source: enrichment.case_status_source,
+    disposal_nature_source: enrichment.official_disposal_nature_source,
+    category_source: enrichment.category_source,
+    official_neutral_citations_source: enrichment.official_neutral_citations_source,
+    last_hearing_date_source: enrichment.last_hearing_date_source,
+    last_hearing_date_iso: enrichment.last_hearing_date_iso,
+    next_hearing_date_source: enrichment.next_hearing_date_source,
+    next_hearing_date_iso: enrichment.next_hearing_date_iso,
+  } : null;
+  const caseEnrichment = enrichment ? {
+    input_case_number: enrichment.input_case_number,
+    lookup_status: enrichment.lookup_status,
+    match_basis: enrichment.match_basis,
+    verification_status: enrichment.verification_status,
+    source_retrieved_at: enrichment.source_retrieved_at,
+    source: "Supreme Court of India case status",
+    case: caseRecord,
+    official_documents: (caseDocumentsResult.results || []).map((document) => ({
+      ...document,
+      is_primary: Boolean(document.is_primary),
+    })),
+    citation_aliases: citationAliasesResult.results || [],
+  } : null;
   return jsonResponse({
     data: {
       ...record,
       judges: judgesResult.results || [],
       source_assets: assetsResult.results || [],
+      case_enrichment: caseEnrichment,
     },
     source: "Supreme Court Reports (SCR)",
+    sources: [
+      "Supreme Court Reports (SCR)",
+      ...(caseEnrichment ? ["Supreme Court of India case status"] : []),
+    ],
   });
 }
 
