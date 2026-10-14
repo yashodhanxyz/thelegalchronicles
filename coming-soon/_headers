@@ -4,3 +4,7 @@
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Cache-Control: public, max-age=300
+
+# Content-addressed artwork: a changed file receives a different URL.
+/article-images/optimized/*
+  Cache-Control: public, max-age=31536000, immutable

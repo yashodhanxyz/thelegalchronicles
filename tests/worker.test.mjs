@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 import worker from "../src/worker.js";
@@ -57,8 +58,10 @@ test("robots policy points crawlers at the canonical sitemap", async () => {
   );
   const text = await response.text();
 
+  assert.match(text, /^User-agent: \*/m);
   assert.match(text, /Disallow: \/api\//);
   assert.match(text, /Sitemap: https:\/\/thelegalchronicles\.com\/sitemap\.xml/);
+  assert.doesNotMatch(text, /OAI-SearchBot|GPTBot/);
 });
 
 test("unknown routes fall through to the static asset binding", async () => {
@@ -69,6 +72,86 @@ test("unknown routes fall through to the static asset binding", async () => {
 
   assert.equal(response.status, 202);
   assert.equal(await response.text(), "static page");
+});
+
+test("homepage renders the latest catalog records from D1 without client JavaScript", async () => {
+  const env = {
+    ...assetsResponse(),
+    DB: databaseBatch([
+      {
+        results: [{
+          slug: "example-case",
+          title_source: "A & B <Limited>",
+          content_status: "published",
+          neutral_citation: "2026 INSC 1",
+          scr_citation: "[2026] 1 S.C.R. 1",
+          decision_date_iso: "2026-01-02",
+          case_number_source: "Civil Appeal No. 1/2026",
+          disposal_nature_source: "Appeal allowed",
+          result_excerpt_source: "Issue for consideration from SCR.",
+        }],
+      },
+      { results: [{ total: 279 }] },
+    ]),
+  };
+  const response = await worker.fetch(
+    new Request("https://thelegalchronicles.com/"),
+    env,
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-robots-tag"), "index, follow");
+  assert.match(html, /A &amp; B &lt;Limited&gt;/);
+  assert.match(html, /279 2026 judgment records/);
+  assert.match(html, /<h2 id="latest-title">Latest judgments<\/h2>/);
+  assert.match(html, /From the SCR record/);
+  assert.match(html, /action="\/judgments\/supreme-court\/2026" method="get" role="search"/);
+  assert.doesNotMatch(html, /<script(?! type="application\/ld\+json")/);
+  assert.doesNotMatch(html, /class="eyebrow"/);
+});
+
+test("homepage database failures return a bounded noindex page with the home canonical", async () => {
+  const env = {
+    ...assetsResponse(),
+    DB: {
+      batch: async () => {
+        throw new Error("database unavailable");
+      },
+      prepare() {
+        return this;
+      },
+    },
+  };
+  const response = await worker.fetch(
+    new Request("https://thelegalchronicles.com/"),
+    env,
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
+  assert.match(html, /<link rel="canonical" href="https:\/\/thelegalchronicles\.com\/">/);
+  assert.match(html, /<h1>The site is unavailable\.<\/h1>/);
+  assert.match(html, /href="\/">Retry/);
+});
+
+test("public homepage hides unpublished records and stays noindex until the first release", async () => {
+  const statements = [];
+  const env = {
+    ...assetsResponse(),
+    DB: {
+      prepare(sql) { statements.push(sql); return {}; },
+      batch: async () => [{ results: [] }, { results: [{ total: 0 }] }],
+    },
+  };
+  const response = await worker.fetch(new Request("https://thelegalchronicles.com/"), env);
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, follow");
+  assert.ok(statements.every((sql) => sql.includes("content_status = 'published'")));
+  assert.match(html, /The judgment library is being prepared/);
 });
 
 test("a missing judgment returns an accessible noindex page", async () => {
@@ -89,7 +172,7 @@ test("a missing judgment returns an accessible noindex page", async () => {
   assert.equal(response.status, 404);
   assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
   assert.match(html, /<h1>Judgment not found\.<\/h1>/);
-  assert.match(html, /href="\/judgments"/);
+  assert.match(html, /href="\/judgments\/supreme-court\/2026"/);
   assert.doesNotMatch(html, /class="eyebrow"/);
 });
 
@@ -117,17 +200,39 @@ test("the judgment list renders source data as escaped server HTML", async () =>
       ]),
   };
   const response = await worker.fetch(
-    new Request("https://thelegalchronicles.com/judgments"),
+    new Request("http://localhost:8792/judgments/supreme-court/2026"),
     env,
   );
   const html = await response.text();
 
   assert.equal(response.status, 200);
-  assert.equal(response.headers.get("x-robots-tag"), "index, follow");
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
   assert.match(html, /A &amp; B &lt;Limited&gt;/);
   assert.match(html, /<main id="main"/);
   assert.match(html, /<h1 id="catalog-title">Judgments, made findable\.<\/h1>/);
   assert.doesNotMatch(html, /class="eyebrow"/);
+});
+
+test("public catalog queries expose only published records and facets", async () => {
+  const statements = [];
+  const env = {
+    ...assetsResponse(),
+    DB: {
+      prepare(sql) { statements.push(sql); return { bind() { return this; } }; },
+      batch: async () => [{ results: [] }, { results: [{ total: 0 }] }, { results: [] }, { results: [] }],
+    },
+  };
+  const response = await worker.fetch(
+    new Request("https://thelegalchronicles.com/judgments/supreme-court/2026"),
+    env,
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, follow");
+  assert.equal(statements.length, 4);
+  assert.ok(statements.every((sql) => sql.includes("content_status = 'published'")));
+  assert.match(html, /No judgments found/);
 });
 
 test("out-of-range listing pages redirect to the last available page", async () => {
@@ -141,12 +246,12 @@ test("out-of-range listing pages redirect to the last available page", async () 
     ]),
   };
   const response = await worker.fetch(
-    new Request("https://thelegalchronicles.com/judgments?page=9"),
+    new Request("https://thelegalchronicles.com/judgments/supreme-court/2026?page=9"),
     env,
   );
 
   assert.equal(response.status, 302);
-  assert.equal(response.headers.get("location"), "https://thelegalchronicles.com/judgments?page=3");
+  assert.equal(response.headers.get("location"), "https://thelegalchronicles.com/judgments/supreme-court/2026?page=3");
 });
 
 test("published and metadata-only judgment details expose the correct indexing boundary", async () => {
@@ -170,7 +275,7 @@ test("published and metadata-only judgment details expose the correct indexing b
     ]),
   };
   const response = await worker.fetch(
-    new Request("https://thelegalchronicles.com/judgments/example-case"),
+    new Request("http://localhost:8792/judgments/example-case"),
     env,
   );
   const html = await response.text();
@@ -178,8 +283,163 @@ test("published and metadata-only judgment details expose the correct indexing b
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("x-robots-tag"), "noindex, follow");
   assert.match(html, /Full judgment text is being verified\./);
-  assert.match(html, /Justice Example \(author\)/);
+  assert.match(html, /Justice Example<\/a> \(author\)/);
   assert.match(html, /View Supreme Court Reports source/);
+});
+
+test("unpublished judgment details return 404 on public hosts", async () => {
+  const env = {
+    ...assetsResponse(),
+    DB: databaseBatch([
+      { results: [{ slug: "held-case", content_status: "validated" }] },
+      { results: [] },
+      { results: [] },
+    ]),
+  };
+  const response = await worker.fetch(
+    new Request("https://thelegalchronicles.com/judgments/held-case"),
+    env,
+  );
+
+  assert.equal(response.status, 404);
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
+});
+
+test("permanent judgment URLs derive IDs from existing slugs before migration 0007", async () => {
+  let sql = "";
+  let boundId = "";
+  const env = {
+    DB: {
+      prepare(query) {
+        sql = query;
+        return {
+          bind(value) { boundId = value; return this; },
+          first: async () => ({
+            slug: "example-case-a1b2c3d4",
+            public_id: "a1b2c3d4",
+            decision_year: 2026,
+            source_citation_year: 2026,
+            content_status: "validated",
+          }),
+        };
+      },
+    },
+  };
+  const response = await worker.fetch(
+    new Request("https://thelegalchronicles.com/judgments/supreme-court/2026/example-case-a1b2c3d4"),
+    env,
+  );
+
+  assert.equal(response.status, 404);
+  assert.equal(boundId, "a1b2c3d4");
+  assert.match(sql, /lower\(substr\(slug, -8\)\)/);
+  assert.doesNotMatch(sql, /WHERE\s+public_id\s*=/);
+});
+
+test("judge-profile routes fail closed until their D1 table is migrated", async () => {
+  const env = { DB: { prepare() { throw new Error("no such table: judge_profiles"); } } };
+  for (const path of ["/judges/supreme-court", "/judges/supreme-court/example-judge"]) {
+    const response = await worker.fetch(new Request(`https://thelegalchronicles.com${path}`), env);
+    assert.equal(response.status, 404);
+    assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
+  }
+});
+
+test("legacy Split View URLs redirect to the canonical judgment", async () => {
+  const response = await worker.fetch(
+    new Request("https://thelegalchronicles.com/judgments/mageba-pilot/split"),
+    assetsResponse(),
+  );
+
+  assert.equal(response.status, 308);
+  assert.equal(
+    response.headers.get("location"),
+    "https://thelegalchronicles.com/judgments/mageba-pilot",
+  );
+});
+
+test("validated R2 judgment text is server rendered and remains noindex before publication", async () => {
+  const renderDocument = {
+    version: "scr-body-v1",
+    id: "example",
+    neutralCitation: "2026 INSC 1",
+    sourcePath: "2026_1_1_2",
+    sourceNeutralKey: "2026INSC1",
+    capturedAt: "2026-09-23T00:00:00.000Z",
+    blocks: [
+      { type: "heading", className: "Judgment_Heading", text: "Judgment" },
+      { type: "paragraph", className: "Judgement_L1", text: "Complete source judgment text." },
+    ],
+  };
+  const body = `${JSON.stringify(renderDocument)}\n`;
+  const hash = createHash("sha256").update(body).digest("hex");
+  const record = {
+    id: 1,
+    slug: "validated-case",
+    title_source: "Example v. State",
+    scr_citation: "[2026] 1 S.C.R. 1",
+    neutral_citation: "2026 INSC 1",
+    decision_date_iso: "2026-01-02",
+    case_number_source: "Civil Appeal No. 1/2026",
+    source_listing_url: "https://scr.sci.gov.in/scrsearch/",
+    source_path: "2026_1_1_2",
+    content_status: "validated",
+    body_render_r2_key: "scr/2026/render/example.json",
+    body_render_sha256: hash,
+  };
+  const env = {
+    ...assetsResponse(),
+    DB: databaseBatch([
+      { results: [record] },
+      { results: [] },
+      { results: [] },
+    ]),
+    JUDGMENT_BODIES: {
+      get: async (key) => key === record.body_render_r2_key ? { text: async () => body } : null,
+    },
+  };
+  const response = await worker.fetch(
+    new Request("http://localhost:8792/judgments/validated-case"),
+    env,
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, follow");
+  assert.match(html, /Validated text · Not yet published/);
+  assert.match(html, /Complete source judgment text\./);
+  assert.match(html, /id="judgment" tabindex="-1"/);
+  assert.doesNotMatch(html, /<script(?! type="application\/ld\+json")/);
+});
+
+test("a validated judgment fails closed when its R2 hash does not match", async () => {
+  const record = {
+    slug: "corrupt-case",
+    title_source: "Corrupt v. State",
+    neutral_citation: "2026 INSC 2",
+    source_path: "2026_1_3_4",
+    content_status: "validated",
+    body_render_r2_key: "scr/2026/render/corrupt.json",
+    body_render_sha256: "0".repeat(64),
+  };
+  const env = {
+    ...assetsResponse(),
+    DB: databaseBatch([
+      { results: [record] },
+      { results: [] },
+      { results: [] },
+    ]),
+    JUDGMENT_BODIES: { get: async () => ({ text: async () => "{}\n" }) },
+  };
+  const response = await worker.fetch(
+    new Request("http://localhost:8792/judgments/corrupt-case"),
+    env,
+  );
+  const html = await response.text();
+
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
+  assert.match(html, /withheld the text rather than show an incomplete legal document/);
 });
 
 test("read-only judgment APIs return records, relationships, filters, and pagination", async () => {
@@ -302,7 +562,7 @@ test("judgment API keeps unmatched case enrichment explicit without inventing a 
   assert.doesNotMatch(JSON.stringify(detail), /raw_payload|r2_key|dataset_sha256/);
 });
 
-test("sitemap includes only records supplied by the published-record query", async () => {
+test("sitemap includes the canonical indexable set only after a judgment is published", async () => {
   const env = {
     ...assetsResponse(),
     DB: {
@@ -322,6 +582,8 @@ test("sitemap includes only records supplied by the published-record query", asy
   const xml = await response.text();
 
   assert.equal(response.headers.get("content-type"), "application/xml; charset=utf-8");
+  assert.match(xml, /<loc>https:\/\/thelegalchronicles\.com\/\<\/loc>/);
+  assert.match(xml, /<loc>https:\/\/thelegalchronicles\.com\/judgments\/supreme-court\/2026<\/loc>/);
   assert.match(xml, /https:\/\/thelegalchronicles\.com\/judgments\/published-case/);
   assert.match(xml, /<lastmod>2026-09-18<\/lastmod>/);
 });

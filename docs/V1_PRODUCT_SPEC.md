@@ -73,8 +73,10 @@ official source PDF cannot be claimed without using that PDF.
 ## Data boundary
 
 - D1 stores identifiers, routes, metadata, filter relationships, collection
-  state, content hashes, and R2 object keys.
-- R2 stores the immutable source HTML capture and the safe renderable document.
+  state, content hashes, immutable source responses and safe render documents.
+- The user approved D1-only storage on 1 October 2026. Documents are split into
+  ordered byte chunks with exact SHA-256 reconciliation; raw source responses
+  remain private. R2 is not required by the active Worker configuration.
 - The source PDF is neither read by the ingestion pipeline nor stored.
 - The website renders complete server HTML; judgment content must not depend on
   client-side JavaScript to become crawlable.

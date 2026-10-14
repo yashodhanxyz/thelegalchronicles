@@ -3,3 +3,7 @@
 node_modules/
 .wrangler/
 .gstack/
+data/scr-body-corpus/
+data/scr-body-corpus-*.json
+data/scr-body-corpus-*.sql
+.local-editorial/
