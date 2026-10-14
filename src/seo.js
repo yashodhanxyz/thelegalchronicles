@@ -18,7 +18,7 @@ export function pageGraph({title, description, canonical, article, image, person
   if (article) {
     const authorId = `${new URL(canonical).origin}/authors/yashodhan-deshmukh#person`;
     graph.push({'@type':'Person','@id':authorId,name:article.human_author || 'Yashodhan Deshmukh',url:authorId.split('#')[0]});
-    const entity = {'@type':'Article','@id':`${canonical}#article`,headline:article.title,description:article.description,url:canonical,mainEntityOfPage:{'@id':webpage['@id']},author:{'@id':authorId},publisher:{'@id':publisher},inLanguage:'en',creativeWorkStatus:'Draft',dateCreated:article.drafted_at,citation:new URL(article.metadata.judgment_path,new URL(canonical).origin).href};
+    const entity = {'@type':'Article','@id':`${canonical}#article`,headline:article.title,description:article.description,url:canonical,mainEntityOfPage:{'@id':webpage['@id']},author:{'@id':authorId},publisher:{'@id':publisher},inLanguage:'en',datePublished:article.published_at,dateModified:article.updated_at || article.published_at,citation:new URL(article.metadata.judgment_path,new URL(canonical).origin).href};
     if (image) entity.image = new URL(image.src,canonical).href;
     graph.push(entity);webpage.mainEntity={'@id':entity['@id']};
   }

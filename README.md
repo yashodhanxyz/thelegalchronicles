@@ -1,12 +1,12 @@
 # The Legal Chronicles
 
-The Legal Chronicles is a judgment-first legal publication. Its Cloudflare Worker serves server-rendered pages backed by D1, with original judgments kept distinct from editorial explanations.
+The Legal Chronicles is a judgment-first legal publication. Its Cloudflare Worker serves server-rendered pages backed by D1, keeping original judgments distinct from editorial explanations.
 
-## Release boundary
+## Release contents and boundaries
 
-Article drafts and full judgment detail pages remain unavailable until their respective content and source reviews are complete. The public homepage and catalog show only validated SCR listing metadata (plus explicitly published records) and link validated records back to the official SCR source. Judgment detail pages and detail API responses require `published`; the sitemap lists only those detail pages. Local review routes are noindex and are only served on loopback hosts.
+The public release contains 277 verified 2026 judgment records, 17 AI-assisted explainers, and 38 official-source judge biographies. Explainers have not undergone independent human legal review; each article says so and links to its source judgment. They are general information, not legal advice.
 
-This public repository intentionally does not contain unpublished article copy, captured judgment bodies, portrait source files, or private editorial review material. The release Worker uses empty defaults for article drafts, judgment pilots, and judge portraits; the content itself is not bundled.
+Two judgment records remain withheld: 2026 INSC 847 because the accessible capture omits a separate concurrence, and 2026 INSC 652 because the source identity is unresolved. Three explainers remain withheld because their source or currentness checks are incomplete. Published pages, APIs, judge counts, and the sitemap include only records marked `published`.
 
 ## Local checks
 
@@ -16,12 +16,10 @@ npm test
 npm run check
 ```
 
-`npm run check` performs a Wrangler dry run. It does not deploy or apply database migrations.
+`npm run check` runs a Wrangler dry run. It does not deploy or change D1. One SCR capture integration test is skipped when the private source-capture manifest is absent from the checkout.
 
-## Production prerequisites
+## Production release
 
-The current production database has migrations 0001–0006 applied. This Worker derives stable eight-character judgment IDs from existing slugs so it remains compatible until migration 0007 is applied. Judge biography routes return 404 until migration 0008 creates their profile table. Apply those schema migrations through the approved release process before importing judge profiles. Do not import or publish content as part of this code change. The production catalog currently contains 278 validated records and one metadata-only record; no article or judgment detail is marked published.
+The production Worker reads the `the-legal-chronicles` D1 database. Take a remote D1 export before changing content status. Do not publish a judgment unless its identity and full source body reconcile; do not publish an explainer with unresolved source fidelity or material currentness issues.
 
-## Release checks
-
-GitHub Actions runs `npm ci`, `npm test`, and the Wrangler dry run for pull requests and pushes to `main`. Cloudflare Workers Builds should use branch previews for review and keep `main` as the only production branch. Database migrations and content-status changes are separate approved operations; a Worker code deploy must never apply either implicitly.
+Release code through a GitHub pull request to `main`, wait for CI, then deploy the merged Worker. Verify the public homepage, an article and its judgment link, a judgment detail, withheld records, robots, sitemap, and APIs after deployment. Database status changes are a separate release step.

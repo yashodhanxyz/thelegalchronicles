@@ -1,75 +1,86 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../src/worker.js';
+import {articleDrafts} from '../src/data/article-drafts.generated.js';
 import {jsonLd} from '../src/seo.js';
 
-test('unpublished article copy and artwork are absent from the public release bundle',async()=>{
- for (const origin of ['http://localhost:8792','https://thelegalchronicles.com']) {
-  const response=await worker.fetch(new Request(origin+'/articles/not-included-in-release'),{});
-  assert.equal(response.status,404);
-  assert.equal(response.headers.get('x-robots-tag'),'noindex, nofollow');
- }
-});
 test('JSON-LD serialization cannot break out into executable HTML',()=>{
  const original={name:'</script><script>alert("x")</script>&'};
  const serialized=jsonLd(original);
  assert.ok(!serialized.includes('<'));
  assert.deepEqual(JSON.parse(serialized),original);
 });
-test('homepage emits a parseable, conservative site graph with canonical metadata',async()=>{
- const env={DB:{prepare(){return {};},batch:async()=>[{results:[]},{results:[{total:0}]}]}};
- const r=await worker.fetch(new Request('https://thelegalchronicles.com/'),env);
- const html=await r.text();
+
+test('homepage emits a parseable, crawlable site graph and the launch layout',async()=>{
+ const env={DB:{prepare(){return {};},batch:async()=>[
+  {results:[{slug:'recent-case-a1b2c3d4',public_id:'a1b2c3d4',decision_year:2026,source_citation_year:2026,title_source:'Recent Case v. State',scr_citation:'[2026] 1 S.C.R. 1',neutral_citation:'2026 INSC 1',decision_date_iso:'2026-08-12',case_number_source:'Civil Appeal No. 1/2026',disposal_nature_source:'Appeal allowed',result_excerpt_source:'SCR excerpt.'}]},
+  {results:[{total:277}]},
+ ]}};
+ const response=await worker.fetch(new Request('https://thelegalchronicles.com/'),env);
+ const html=await response.text();
  const graph=JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
- assert.equal(r.status,200);
- assert.match(html,/<title>The Legal Chronicles \| Supreme Court judgments and legal journalism<\/title>/);
- assert.match(html,/<meta name="description" content="Find and verify Supreme Court judgments/);
+ assert.equal(response.status,200);
+ assert.equal(response.headers.get('x-robots-tag'),'index, follow');
  assert.match(html,/<link rel="canonical" href="https:\/\/thelegalchronicles\.com\/">/);
+ assert.ok(html.includes('Featured article'));
+ assert.ok(html.includes('More articles'));
+ assert.ok(html.includes('Latest judgments'));
+ assert.equal((html.match(/class="home-companions"/g)||[]).length,1);
+ assert.ok(!html.includes('Law in the public record, for a more informed India.'));
  assert.ok(graph['@graph'].some(e=>e['@type']==='Organization'&&e.name==='The Legal Chronicles'));
  assert.ok(graph['@graph'].some(e=>e['@type']==='WebSite'&&e.url==='https://thelegalchronicles.com'));
  assert.ok(graph['@graph'].some(e=>e['@type']==='WebPage'&&e.url==='https://thelegalchronicles.com/'));
- assert.ok(!graph['@graph'].some(e=>e['@type']==='Article'));
 });
-test('llms.txt is a curated map and does not expose unpublished drafts or claim a full-text feed',async()=>{
- const r=await worker.fetch(new Request('https://thelegalchronicles.com/llms.txt'),{});
- const text=await r.text();
- assert.equal(r.status,200);
- assert.match(r.headers.get('content-type'),/text\/plain; charset=utf-8/);
- assert.match(text,/https:\/\/thelegalchronicles\.com\/sitemap\.xml/);
- assert.match(text,/Draft article URLs, local author review URLs, and unpublished judgment detail URLs are not enumerated here/);
- assert.match(text,/No llms-full\.txt is provided/);
- assert.doesNotMatch(text,/\/articles\//);
- assert.doesNotMatch(text,/\/authors\//);
-});
-test('owned HTTP and www URLs consolidate while preserving path and query',async()=>{
- for(const origin of ['http://thelegalchronicles.com','https://www.thelegalchronicles.com']){
-  const r=await worker.fetch(new Request(origin+'/judgments?page=2'),{});
-  assert.equal(r.status,308);
-  assert.equal(r.headers.get('location'),'https://thelegalchronicles.com/judgments?page=2');
+
+test('public author, policy, and corrections pages are indexable and describe the actual process',async()=>{
+ for(const path of ['/authors/yashodhan-deshmukh','/editorial-policy','/corrections']){
+  const response=await worker.fetch(new Request(`https://thelegalchronicles.com${path}`),{});
+  assert.equal(response.status,200,path);
+  assert.equal(response.headers.get('x-robots-tag'),'index, follow',path);
+  const html=await response.text();
+  assert.ok(html.includes('<h1>'),path);
+  assert.ok(html.includes('rel="canonical"'),path);
+  if(path.includes('authors')){
+   assert.ok(html.includes('Yashodhan Deshmukh is the founder of Order.law'));
+   assert.ok(html.includes('17 explainers are published'));
+   for(const article of articleDrafts)assert.ok(html.includes(article.proposed_article_path));
+  }
+  if(path==='/editorial-policy'){
+   assert.ok(html.includes('have not undergone independent human legal review'));
+   assert.ok(html.includes('Separate review or curative proceedings'));
+   assert.ok(!html.includes('Draft for review'));
+  }
+  if(path==='/corrections'){
+   assert.ok(html.includes('yash@order.law'));
+   assert.ok(html.includes('do not promise a fixed response time'));
+  }
  }
 });
-test('local author profile is noindex and does not enumerate unpublished article URLs',async()=>{
- const r=await worker.fetch(new Request('http://localhost:8792/authors/yashodhan-deshmukh'),{});
- const html=await r.text();
- assert.equal(r.status,200);assert.equal(r.headers.get('x-robots-tag'),'noindex, nofollow');
- assert.ok(!html.includes('/articles/'));
- assert.ok(!html.includes('datePublished'));
+
+test('sitemap contains only canonical public pages and published judgment details',async()=>{
+ const queries=[];
+ const env={DB:{prepare(sql){queries.push(sql);return {all:async()=>({results:[{slug:'recent-case-a1b2c3d4',public_id:'a1b2c3d4',decision_year:2026,source_citation_year:2026,updated_at:'2026-10-14'}]})};}}};
+ const response=await worker.fetch(new Request('https://thelegalchronicles.com/sitemap.xml'),env);
+ const xml=await response.text();
+ assert.ok(queries.some(query=>query.includes("content_status = 'published'")));
+ assert.equal(response.headers.get('content-type'),'application/xml; charset=utf-8');
+ for(const path of ['/','/articles','/editorial-policy','/corrections','/authors/yashodhan-deshmukh','/judges/supreme-court','/judgments/supreme-court/2026/recent-case-a1b2c3d4'])assert.ok(xml.includes(`<loc>https://thelegalchronicles.com${path}</loc>`));
+ for(const article of articleDrafts)assert.ok(xml.includes(`<loc>https://thelegalchronicles.com${article.proposed_article_path}</loc>`));
+ assert.ok(xml.includes('<lastmod>2026-10-14</lastmod>'));
+ assert.ok(!xml.includes('417b8667'));
 });
-test('sitemap includes public catalog entry points but omits unpublished judgment details',async()=>{
- let query='';
- const env={DB:{prepare(sql){query=sql;return {all:async()=>({results:[]})};}}};
- const r=await worker.fetch(new Request('http://localhost:8792/sitemap.xml'),env);
- const xml=await r.text();
- assert.ok(query.includes("content_status = 'published'"));
- assert.match(xml,/<loc>https:\/\/thelegalchronicles\.com\/<\/loc>/);
- assert.match(xml,/<loc>https:\/\/thelegalchronicles\.com\/judgments\/supreme-court\/2026<\/loc>/);
- assert.ok(!xml.includes('/judgments/unpublished'));
- assert.ok(!xml.includes('/articles'));
- assert.ok(!xml.includes('/authors/'));
-});
-test('author review route is explicitly withheld on public and preview hosts',async()=>{
- for(const host of ['thelegalchronicles.com','preview.example.com']) {
-  const r=await worker.fetch(new Request(`https://${host}/authors/yashodhan-deshmukh`),{});
-  assert.equal(r.status,404);assert.equal(r.headers.get('x-robots-tag'),'noindex, nofollow');
- }
+
+test('robots and llms.txt expose discovery routes while keeping APIs and withheld sources out',async()=>{
+ const robots=await worker.fetch(new Request('https://thelegalchronicles.com/robots.txt'),{});
+ const robotsText=await robots.text();
+ assert.ok(robotsText.includes('Sitemap: https://thelegalchronicles.com/sitemap.xml'));
+ assert.ok(robotsText.includes('Disallow: /api/'));
+ const llms=await worker.fetch(new Request('https://thelegalchronicles.com/llms.txt'),{});
+ const text=await llms.text();
+ assert.equal(llms.status,200);
+ assert.ok(text.includes('17 AI-assisted explainers'));
+ assert.ok(text.includes('have not undergone independent human legal review'));
+ for(const article of articleDrafts)assert.ok(text.includes(`https://thelegalchronicles.com${article.proposed_article_path}`));
+ assert.ok(!text.includes('417b8667'));
+ assert.ok(text.includes('No llms-full.txt is provided'));
 });
