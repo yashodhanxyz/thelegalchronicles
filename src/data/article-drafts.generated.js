@@ -60,11 +60,10 @@ export const articleDrafts = [
       "source_render_sha256": "a3bfafe8eafadd3ab817fb026a4f3bd07e6327052b7f8d8b3a9ff0411dd45c69",
       "judgment_path": "/judgments/supreme-court/2026/gayatree-pattnaik-for-shreejita-pattnaik-versus-arundhati-sahoo-and-anr-c52b4f45"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/child-accident-compensation-why-the-supreme-court-raised-shreejita-pattnaik-s-award-to-83-38-lakh-c52b4f45",
     "word_count": 882,
     "narrative_words": 416
@@ -129,11 +128,10 @@ export const articleDrafts = [
       "source_render_sha256": "43cba67f842c1f6d23ca50b305e03b72d851e85bbb3bf0ea817824cc983421a2",
       "judgment_path": "/judgments/supreme-court/2026/kuntegowda-versus-thurubaiah-c81c0290"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/cheque-bounce-cases-kuntegowda-explains-financial-capacity-and-the-limits-of-revision-c81c0290",
     "word_count": 847,
     "narrative_words": 373
@@ -209,12 +207,11 @@ export const articleDrafts = [
       "source_render_sha256": "4c4ae9aa59d77300a4d8b1e514ac5dd5b7dae8fbadeadd4ad7d26ea6ef1c7779",
       "judgment_path": "/judgments/supreme-court/2026/delhi-technological-university-versus-b-s-rawat-3d50b31a"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "updated_at": "2026-10-14",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/withdrawing-a-resignation-after-leaving-service-what-dtu-v-b-s-rawat-decided-3d50b31a",
     "word_count": 950,
     "narrative_words": 371
@@ -279,11 +276,10 @@ export const articleDrafts = [
       "source_render_sha256": "cf5b3535d3e3d88093bbc2ec382a5297780a66723bb99a5ab8a58257e50f8fb6",
       "judgment_path": "/judgments/supreme-court/2026/government-of-india-and-anr-versus-sri-devraj-urs-medical-college-4766179a"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/medical-college-subvention-after-tma-pai-why-the-supreme-court-rejected-a-five-year-payment-claim-4766179a",
     "word_count": 881,
     "narrative_words": 376
@@ -348,11 +344,10 @@ export const articleDrafts = [
       "source_render_sha256": "060eed684eb8a3384b17fe0cca8b901512474dcb066975de136a7e000a2a6702",
       "judgment_path": "/judgments/supreme-court/2026/arjun-jani-tuntun-versus-state-of-orissa-bf43e767"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/arjun-jani-acquitted-after-22-years-the-supreme-court-on-delayed-appeals-and-unreliable-evidence-bf43e767",
     "word_count": 820,
     "narrative_words": 362
@@ -417,11 +412,10 @@ export const articleDrafts = [
       "source_render_sha256": "ba8f02537d291b447d9b5204a76dcb7d15be800d53edddc5e6001d207a69f72e",
       "judgment_path": "/judgments/supreme-court/2026/k-bharathamma-versus-bandaru-sakku-bai-and-others-3611705e"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/recalling-a-witness-cannot-repair-a-finished-case-k-bharathamma-on-order-xviii-rule-17-3611705e",
     "word_count": 826,
     "narrative_words": 367
@@ -495,12 +489,11 @@ export const articleDrafts = [
       "source_render_sha256": "0ac092253827086f673a912bc17c44cfb0966542ea77d50f9a3b6215dd49a93d",
       "judgment_path": "/judgments/supreme-court/2026/amravati-municipal-corporation-versus-ganesh-dadarao-anasane-and-ors-c936c42b"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "updated_at": "2026-10-14",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/environmental-compensation-is-more-than-a-fine-the-amravati-waste-management-order-c936c42b",
     "word_count": 1043,
     "narrative_words": 342
@@ -567,11 +560,10 @@ export const articleDrafts = [
       "source_render_sha256": "670934116ddd1124d0e5e2ca75fffd2b0317a170c99a24b6556870214dd421b9",
       "judgment_path": "/judgments/supreme-court/2026/commissioner-of-central-excise-hyderabad-iv-versus-m-s-xerox-india-ltd-a-25a347b5"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/does-configuring-imported-photocopier-modules-amount-to-manufacture-the-xerox-excise-ruling-25a347b5",
     "word_count": 857,
     "narrative_words": 352
@@ -636,11 +628,10 @@ export const articleDrafts = [
       "source_render_sha256": "88157fc5be99ed150a0b48569759d4df619269d6b9d889cd96fc0021c574d944",
       "judgment_path": "/judgments/supreme-court/2026/m-s-bharatiya-vidya-bhavan-s-public-school-versus-m-vimala-and-ors-f70f6467"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/teacher-probation-and-an-unrecognised-b-ed-degree-the-bharatiya-vidya-bhavan-ruling-f70f6467",
     "word_count": 854,
     "narrative_words": 365
@@ -705,11 +696,10 @@ export const articleDrafts = [
       "source_render_sha256": "62367890f2ece1537c064280387f178ec1ce97706e5f43bbac0c45ff7892af78",
       "judgment_path": "/judgments/supreme-court/2026/commissioner-of-service-tax-chennai-versus-m-s-diebold-systems-p-ltd-065a4f9b"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/atm-turnkey-contracts-and-pre-2007-service-tax-why-the-revenue-lost-in-diebold-systems-065a4f9b",
     "word_count": 855,
     "narrative_words": 346
@@ -774,11 +764,10 @@ export const articleDrafts = [
       "source_render_sha256": "18d0b5325ac8afb944f28aa91e0abf88292571e499ff5c295c944f6a1bc14359",
       "judgment_path": "/judgments/supreme-court/2026/harpreet-sawhney-versus-puneet-sharma-0481ad70"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/maintenance-and-salary-deductions-what-harpreet-sawhney-v-puneet-sharma-decided-0481ad70",
     "word_count": 829,
     "narrative_words": 356
@@ -843,11 +832,10 @@ export const articleDrafts = [
       "source_render_sha256": "22eb0a59d09f98e0b965c9039cf163d9689781feedbf5622a52d51b7e2b4f90e",
       "judgment_path": "/judgments/supreme-court/2026/national-projects-construction-corporation-ltd-versus-ishvakoo-india-pvt-e1bdf2c2"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/section-9-after-an-arbitral-award-why-npcc-had-to-deposit-3-5-crore-e1bdf2c2",
     "word_count": 825,
     "narrative_words": 355
@@ -912,11 +900,10 @@ export const articleDrafts = [
       "source_render_sha256": "734628ebdfdfe6ce9f3ea77540ece4548498955e5ecc33f5be07eaa2f433b0f5",
       "judgment_path": "/judgments/supreme-court/2026/rahul-versus-state-of-uttar-pradesh-and-another-271f82b2"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/when-official-defence-records-justify-quashing-rahul-v-state-of-uttar-pradesh-271f82b2",
     "word_count": 865,
     "narrative_words": 373
@@ -981,11 +968,10 @@ export const articleDrafts = [
       "source_render_sha256": "3630ec2795f0d2675cd876f46229edc7eeadeabb1b0ffa26eab72f8c54ac28b1",
       "judgment_path": "/judgments/supreme-court/2026/securities-and-exchange-board-of-india-versus-rajeev-vasant-sheth-and-or-ab806c21"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/insider-trading-to-fund-a-company-why-sebi-succeeded-against-rajeev-vasant-sheth-ab806c21",
     "word_count": 917,
     "narrative_words": 365
@@ -1050,11 +1036,10 @@ export const articleDrafts = [
       "source_render_sha256": "4b060f8cd1625c334931be1a4dac56941cde8c8bbdf9c1cee25f3e4c0159de6b",
       "judgment_path": "/judgments/supreme-court/2026/shatrughn-yadav-versus-the-fertilizers-and-chemicals-travancore-ltd-f-a-fb7b3020"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/an-undisclosed-criminal-report-is-not-automatic-dismissal-shatrughn-yadav-v-fact-fb7b3020",
     "word_count": 852,
     "narrative_words": 375
@@ -1119,11 +1104,10 @@ export const articleDrafts = [
       "source_render_sha256": "652686d2fc07e0b09c1813f0f6b82737cb935eec39d8496b15a4246a639bf479",
       "judgment_path": "/judgments/supreme-court/2026/mageba-bridge-products-private-limited-versus-m-s-trade-centre-92c69e3b"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/invoice-recovery-and-limitation-why-mageba-defeated-a-registered-partnership-s-suit-92c69e3b",
     "word_count": 805,
     "narrative_words": 344
@@ -1188,11 +1172,10 @@ export const articleDrafts = [
       "source_render_sha256": "c920173e2edc1000d8160e27f82964892cbcb49d93aafa69ff2c088d8ef62032",
       "judgment_path": "/judgments/supreme-court/2026/m-s-carestream-health-india-pvt-ltd-versus-commissioner-of-customs-c672bd54"
     },
-    "status": "draft_for_editorial_review",
+    "status": "published",
     "human_author": "Yashodhan Deshmukh",
-    "legal_reviewer": null,
-    "publication_date": null,
-    "image_status": "ready_for_local_review",
+    "publication_date": "2026-10-14",
+    "image_status": "published",
     "proposed_article_path": "/articles/medical-laser-imagers-and-customs-classification-why-carestream-s-appeal-failed-c672bd54",
     "word_count": 820,
     "narrative_words": 342

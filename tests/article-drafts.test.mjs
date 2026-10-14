@@ -13,6 +13,12 @@ const heldPaths = [
 test('only the 17 explicitly released explainers and their artwork are shipped',()=>{
  assert.equal(articleDrafts.length,17);
  assert.equal(Object.keys(articleImages).length,17);
+ for(const article of articleDrafts){
+  assert.equal(article.status,'published');
+  assert.equal(article.publication_date,'2026-10-14');
+  assert.equal(article.image_status,'published');
+  assert.equal(Object.hasOwn(article,'legal_reviewer'),false);
+ }
  for(const id of ['417b8667','52f43005','8c44c5bb']){
   assert.ok(!articleDrafts.some(a=>a.id===id));
   assert.ok(!Object.hasOwn(articleImages,id));
