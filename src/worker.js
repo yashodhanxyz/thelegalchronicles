@@ -134,7 +134,6 @@ function pageShell({ title, description, canonical, robots = "index, follow", cu
       <nav aria-label="Primary navigation">
         <a${current === "judgments" ? ` aria-current="page"` : ""} href="${COURT_CATALOG}">Judgments</a>
         <a href="/articles">Articles</a>
-        <a href="/articles">Articles</a>
         <a href="/judges/supreme-court">Judges</a>
         <a href="/#about">About</a>
       </nav>

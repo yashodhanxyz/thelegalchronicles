@@ -25,6 +25,8 @@ test('homepage emits a parseable, crawlable site graph and the launch layout',as
  assert.ok(html.includes('Featured article'));
  assert.ok(html.includes('More articles'));
  assert.ok(html.includes('Latest judgments'));
+ const primaryNav=html.match(/<nav aria-label="Primary navigation">([\s\S]*?)<\/nav>/)?.[1]||'';
+ assert.equal((primaryNav.match(/href="\/articles">Articles<\/a>/g)||[]).length,1);
  assert.equal((html.match(/class="home-companions"/g)||[]).length,1);
  assert.ok(!html.includes('Law in the public record, for a more informed India.'));
  assert.ok(graph['@graph'].some(e=>e['@type']==='Organization'&&e.name==='The Legal Chronicles'));
