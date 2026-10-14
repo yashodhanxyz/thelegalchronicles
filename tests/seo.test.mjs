@@ -55,14 +55,15 @@ test('local author profile is noindex and does not enumerate unpublished article
  assert.ok(!html.includes('/articles/'));
  assert.ok(!html.includes('datePublished'));
 });
-test('sitemap omits all URLs while no judgment is published',async()=>{
+test('sitemap includes public catalog entry points but omits unpublished judgment details',async()=>{
  let query='';
  const env={DB:{prepare(sql){query=sql;return {all:async()=>({results:[]})};}}};
  const r=await worker.fetch(new Request('http://localhost:8792/sitemap.xml'),env);
  const xml=await r.text();
  assert.ok(query.includes("content_status = 'published'"));
- assert.match(xml,/<urlset xmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9"><\/urlset>/);
- assert.ok(!xml.includes('<loc>'));
+ assert.match(xml,/<loc>https:\/\/thelegalchronicles\.com\/<\/loc>/);
+ assert.match(xml,/<loc>https:\/\/thelegalchronicles\.com\/judgments\/supreme-court\/2026<\/loc>/);
+ assert.ok(!xml.includes('/judgments/unpublished'));
  assert.ok(!xml.includes('/articles'));
  assert.ok(!xml.includes('/authors/'));
 });
