@@ -19,17 +19,16 @@ export const editorialPolicySections = [
     'Split opinions, uncertainty, source gaps and later developments must be stated when relevant. Judge, lawyer and party relationships must follow the source record; a name appearing in a record does not establish a role that the source does not identify.',
   ]],
   ['review','Review before publication',[
-    'Articles and original-text reproductions remain unpublished until their respective review requirements are complete. An automated check is supporting evidence, not a substitute for human legal-content review.',
-    'Before release, the responsible author must check the article against its identified sources: case identity, facts, reasoning, outcome, quotations, calculations, attribution and dates. The review record must name the person who checked it, the date, the sources consulted and any unresolved questions. Author review must not be described as independent review or review by a lawyer unless that separately took place and can be identified.',
-    'The pre-publication check must include a search of available official case-status and order records for relevant later developments. Record the sources searched and the date of the check. If access or coverage is limited, state that limitation; do not describe the article as a complete or continuously updated account. Withhold an article when an unresolved issue could materially change its explanation.',
-    'Original-text reproductions must pass source-identity and fidelity checks, including a human comparison of the rendered text with the preserved source. If the required checks cannot be completed, the reproduction remains unpublished.',
-    'The current local article collection is still under review. These proposed standards do not certify that any draft has completed review.',
+    'Our explainers are AI-assisted and have not undergone independent human legal review. This is stated on each article. They are general information, not legal advice or official court documents.',
+    'We check source identity and key claims against identified official material, preserve paragraph references where available, and record known source limitations. These checks are targeted; they do not certify every sentence, quotation, calculation or passage through a complete legal review.',
+    'For the August 2026 launch set, the identified main-case docket or grouped appeals were checked on 14 October 2026. Separate review or curative proceedings, connected matters, implementation and lower-court action may remain unchecked. Articles state material case-specific developments and link to the official record; we do not claim continuous monitoring.',
+    'Original judgment text is kept distinct from explanation and served only for records with a validated source/render body. Incomplete or uncertain source records are withheld. Readers should consult the linked official source where wording or completeness matters.',
   ]],
   ['authorship','Authorship and the use of AI',[
     'Each article must identify its responsible author. Credentials, affiliations and reviewer names must be accurate and must not imply qualifications or review that have not been verified.',
     'AI tools may assist research organisation, drafting and editorial illustrations. An AI-generated explanation is not an official court document. AI must not be used to editorially rewrite original legal text, invent authorities or replace verification against the source.',
     'An editorial illustration is not evidence of an event or a photograph of the case. Original court material and publisher-created explanations and artwork must remain distinguishable.',
-    'Material use of AI in an article or its artwork should be disclosed in the editorial record. The named author remains responsible for checking the published explanation.',
+    'Material use of AI in an article or its artwork is disclosed on the article. The named author is responsible for the published explanation and for correcting substantiated errors brought to the publication’s attention.',
   ]],
   ['dates','Dates, updates and corrections',[
     'Judgment dates, source retrieval dates, article publication dates and meaningful update dates describe different events and must be labelled accordingly. A preparation date is not a publication date.',
