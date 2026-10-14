@@ -1,6 +1,30 @@
+import { authorProfile, correctionsEmail, editorialPolicySections } from './data/publication.js';
+import { jsonLd, pageGraph } from './seo.js';
+import { displayCaseTitle } from './display-title.js';
+const COURT_CATALOG = '/judgments/supreme-court/2026';
+function judgmentPath(record) {
+  if (!record.public_id) return `/judgments/${encodeURIComponent(record.slug)}`;
+  const name = record.slug.replace(/-[a-z0-9]{8}$/, '').replace(/-\d{4}-insc-\d+$/, '');
+  return `/judgments/supreme-court/${record.decision_year || record.source_citation_year}/${encodeURIComponent(name)}-${record.public_id}`;
+}
+async function canonicalJudgment(request, env, publicId, year) {
+  const record = await env.DB.prepare('SELECT slug, lower(substr(slug, -8)) AS public_id, decision_year, source_citation_year, content_status FROM judgments WHERE lower(substr(slug, -8)) = ?1 LIMIT 1').bind(publicId).first();
+  if (!record || String(record.decision_year || record.source_citation_year) !== year || (record.content_status !== 'published' && !isLocalArticleReview(request))) return new Response('Judgment not found', {status:404,headers:{'X-Robots-Tag':'noindex, nofollow'}});
+  const path = judgmentPath(record);
+  if (new URL(request.url).pathname !== path) return Response.redirect(new URL(path, request.url).href,308);
+  return judgmentDetail(record.slug,env,null,isLocalArticleReview(request));
+}
+
 const SITE_NAME = "The Legal Chronicles";
 const SITE_ORIGIN = "https://thelegalchronicles.com";
 const PAGE_SIZE = 20;
+const articleImages = Object.freeze({});
+const articleDrafts = Object.freeze([]);
+const judgePortraits = Object.freeze([]);
+const scrBodyPilotDocuments = Object.freeze([]);
+const pilotDocumentsByCitation = new Map(
+  scrBodyPilotDocuments.map((document) => [document.neutralCitation, document]),
+);
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -62,7 +86,13 @@ function bodyless(response) {
   });
 }
 
-function pageShell({ title, description, canonical, robots = "index, follow", content }) {
+function searchIcon() {
+  return `<svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4.25 4.25"></path></svg>`;
+}
+
+function pageShell({ title, description, canonical, robots = "index, follow", current = "", content, article, image, person, breadcrumbs = [] }) {
+  const socialImage = new URL(image?.src || '/social-card.png', canonical).href;
+  const graph = pageGraph({title,description,canonical,article,image,person,breadcrumbs});
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -73,20 +103,52 @@ function pageShell({ title, description, canonical, robots = "index, follow", co
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}">
     <link rel="canonical" href="${escapeHtml(canonical)}">
-    <link rel="stylesheet" href="/catalog.css">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+    <meta property="og:site_name" content="${SITE_NAME}">
+    <meta property="og:type" content="${article ? 'article' : 'website'}">
+    <meta property="og:title" content="${escapeHtml(title)}">
+    <meta property="og:description" content="${escapeHtml(description)}">
+    <meta property="og:url" content="${escapeHtml(canonical)}">
+    <meta property="og:image" content="${escapeHtml(socialImage)}">
+    <meta property="og:image:alt" content="${escapeHtml(image?.alt || 'The Legal Chronicles — independent legal publishing')}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${escapeHtml(title)}">
+    <meta name="twitter:description" content="${escapeHtml(description)}">
+    <meta name="twitter:image" content="${escapeHtml(socialImage)}">
+    <meta name="twitter:image:alt" content="${escapeHtml(image?.alt || 'The Legal Chronicles — independent legal publishing')}">
+    <script type="application/ld+json">${jsonLd(graph)}</script>
+    <link rel="stylesheet" href="/catalog.css?v=20261013-article-review1">
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to results</a>
+    <a class="skip-link" href="#main">Skip to main content</a>
     <header class="site-header">
       <a class="wordmark" href="/">${SITE_NAME}</a>
       <nav aria-label="Primary navigation">
-        <a aria-current="page" href="/judgments">Judgments</a>
+        <a${current === "judgments" ? ` aria-current="page"` : ""} href="${COURT_CATALOG}">Judgments</a>
+        <a href="/judges/supreme-court">Judges</a>
+        <a href="/#about">About</a>
       </nav>
+      <details class="site-search">
+        <summary aria-label="Open search">${searchIcon()}<span class="visually-hidden">Search judgments</span></summary>
+        <form action="${COURT_CATALOG}" method="get" role="search">
+          <label for="site-search">Search judgments</label>
+          <div>
+            <input id="site-search" type="search" name="q" placeholder="Case name, citation or number" autocomplete="off">
+            <button type="submit">Search</button>
+          </div>
+        </form>
+      </details>
     </header>
     ${content}
     <footer class="site-footer">
-      <p>© 2026 ${SITE_NAME}</p>
-      <p>Independent legal publishing</p>
+      <div class="footer-main">
+        <div id="about" class="footer-identity"><a class="footer-wordmark" href="/">${SITE_NAME}</a><p>Original judgments. Clearer understanding.</p><p class="footer-description">A free, independent legal publication connecting the public record with accessible explanations.</p></div>
+        <nav class="footer-navigation" aria-label="Footer navigation"><h2>Explore</h2><a href="${COURT_CATALOG}">Judgments</a><a href="/judges/supreme-court">Judges</a><a href="/#about">About the publication</a></nav>
+        <div class="footer-source"><h2>The record comes first</h2><p>Our explanations sit alongside the law. For the Court’s reasoning and directions, always consult the original judgment.</p><a href="${COURT_CATALOG}">Explore the judgment archive <span aria-hidden="true">↗</span></a></div>
+      </div>
+      <div class="footer-bottom"><p>© 2026 ${SITE_NAME}</p><p>Independent legal publishing · Free to read</p></div>
     </footer>
   </body>
 </html>`;
@@ -103,6 +165,393 @@ function formatDate(value) {
   }).format(new Date(`${year}-${month}-${day}T00:00:00Z`));
 }
 
+function dateParts(value) {
+  if (!value) return { month: "—", day: "—", label: "Date unavailable" };
+  const date = new Date(`${value}T00:00:00Z`);
+  return {
+    month: new Intl.DateTimeFormat("en-IN", { month: "short", timeZone: "UTC" }).format(date),
+    day: new Intl.DateTimeFormat("en-IN", { day: "2-digit", timeZone: "UTC" }).format(date),
+    label: formatDate(value),
+  };
+}
+
+const judgmentSectionIds = {
+  "Issues-for-Consideration_Heading": "issue",
+  Headnote_Heading: "headnotes",
+  Act_Heading: "acts",
+  Keywords_Heading: "keywords",
+  "Case-Cited_Heading": "case-law",
+  "Apeal-1_Heading": "origin",
+  "Advocatees-Appeared_Heading": "appearances",
+  Judgment_Heading: "judgment",
+};
+
+function renderJudgmentBlocks(blocks) {
+  const usedIds = new Set();
+  const renderText = (block, start = 0) => {
+    const references = [...(block.footnoteReferences || [])].sort((a, b) => a.offset - b.offset);
+    const inlineRanges = block.inlineRanges || [];
+    const applyInlineStyles = (value, activeRanges) => {
+      const kinds = new Set(activeRanges.map((range) => range.kind));
+      let output = escapeHtml(value);
+      if (kinds.has("underline") || kinds.has("strong-underline")) {
+        output = `<span class="judgment-source-underline">${output}</span>`;
+      }
+      if (kinds.has("emphasis") || kinds.has("strong-emphasis")) {
+        output = `<em>${output}</em>`;
+      }
+      if (kinds.has("strong") || kinds.has("strong-emphasis") || kinds.has("strong-underline")) {
+        output = `<strong>${output}</strong>`;
+      }
+      return output;
+    };
+    const renderRange = (start) => {
+      const boundaries = new Set([start, block.text.length]);
+      for (const range of inlineRanges) {
+        if (range.end <= start) continue;
+        boundaries.add(Math.max(start, range.start));
+        boundaries.add(range.end);
+      }
+      for (const reference of references) {
+        if (reference.offset < start) continue;
+        boundaries.add(reference.offset);
+        boundaries.add(reference.offset + reference.number.length);
+      }
+      const offsets = [...boundaries].sort((a, b) => a - b);
+      const segments = [];
+      for (let index = 0; index < offsets.length - 1; index += 1) {
+        const from = offsets[index];
+        const to = offsets[index + 1];
+        if (to <= from) continue;
+        const value = block.text.slice(from, to);
+        const activeRanges = inlineRanges.filter((range) => range.start <= from && range.end >= to);
+        const styledValue = applyInlineStyles(value, activeRanges);
+        const reference = references.find(
+          (item) => item.offset === from && item.offset + item.number.length === to,
+        );
+        segments.push(reference
+          ? `<a class="judgment-footnote-reference" id="${escapeHtml(reference.backlinkId)}" href="#${escapeHtml(reference.targetId)}" aria-label="Footnote ${escapeHtml(reference.number)}"><sup>${styledValue}</sup></a>`
+          : styledValue);
+      }
+      return segments.join("");
+    };
+
+    if (start === 0 && block.paragraphMarker && block.text.startsWith(block.paragraphMarker)) {
+      const mainOpinionNumber = block.className === "Judgement_L1" && /^(\d+)\.$/u.exec(block.paragraphMarker)?.[1];
+      const paragraphAnchor = mainOpinionNumber
+        ? ` id="karol-p-${mainOpinionNumber}" tabindex="-1"`
+        : "";
+      return `<span${paragraphAnchor} class="judgment-paragraph-number">${escapeHtml(block.paragraphMarker)}</span> ${renderRange(block.paragraphMarker.length)}`;
+    }
+    return renderRange(start);
+  };
+
+  return blocks.map((block) => {
+    if (block.type === "rule") return `<hr class="judgment-rule">`;
+    const text = renderText(block);
+    const sourceId = judgmentSectionIds[block.className];
+    const resultId = block.className.startsWith("Result-of-the-Case") ? "result" : null;
+    const preferredId = sourceId || resultId;
+    const id = preferredId && !usedIds.has(preferredId) ? preferredId : null;
+    if (id) usedIds.add(id);
+    const idAttribute = id ? ` id="${id}" tabindex="-1"` : "";
+
+    if (block.type === "heading") {
+      return `<h2${idAttribute} class="judgment-section-heading">${text}</h2>`;
+    }
+    if (block.className === "Heading-1") {
+      return `<h3 class="judgment-subheading">${text}</h3>`;
+    }
+    const quoteLevel = block.className.match(/^Judgement-Q([1-3])/u)?.[1];
+    if (block.type === "quote" || quoteLevel) {
+      return `<blockquote class="judgment-quote${quoteLevel ? ` judgment-quote-level-${quoteLevel}` : ""}">${text}</blockquote>`;
+    }
+    if (block.className === "Footnote" || block.type === "footnotes") {
+      if (block.footnote) {
+        const footnoteBody = renderText(block, block.footnote.number.length);
+        return `<p class="judgment-footnote" id="${escapeHtml(block.footnote.id)}" tabindex="-1"><a class="judgment-footnote-backlink" href="#${escapeHtml(block.footnote.backlinkId)}" aria-label="Return to footnote reference ${escapeHtml(block.footnote.number)}">${escapeHtml(block.footnote.number)}</a>${footnoteBody}</p>`;
+      }
+      return `<p class="judgment-footnote">${text}</p>`;
+    }
+    if (resultId) {
+      return `<p${idAttribute} class="judgment-result">${text}</p>`;
+    }
+    if (block.className === "Author-Name") {
+      return `<p class="judgment-author">${text}</p>`;
+    }
+    const paragraphLevel = block.className.match(/^Judgement_L([2-3])/u)?.[1];
+    const sourceClass = block.className.startsWith("Centre")
+      ? " judgment-centered"
+      : block.className === "Emphasis"
+        ? " judgment-emphasis"
+        : paragraphLevel
+          ? ` judgment-paragraph-level-${paragraphLevel}`
+          : "";
+    return `<p class="judgment-paragraph${sourceClass}">${text}</p>`;
+  }).join("");
+}
+
+const judgmentSectionLabels = {
+  issue: "Issue for consideration",
+  headnotes: "Headnotes",
+  "case-law": "Case law cited",
+  acts: "Acts",
+  keywords: "Keywords",
+  origin: "Case arising from",
+  appearances: "Appearances",
+  judgment: "Judgment",
+  result: "Result",
+};
+
+function judgmentContents(blocks) {
+  const sectionIds = [];
+  for (const block of blocks) {
+    const sectionId = judgmentSectionIds[block.className]
+      || (block.className.startsWith("Result-of-the-Case") ? "result" : null);
+    if (sectionId && !sectionIds.includes(sectionId)) sectionIds.push(sectionId);
+  }
+  if (!sectionIds.length) return "";
+  return `<nav class="split-contents" aria-label="Judgment sections">
+    <h2>In this judgment</h2>
+    <ol>${sectionIds.map((sectionId) => `<li><a href="#${sectionId}">${escapeHtml(judgmentSectionLabels[sectionId])}</a></li>`).join("")}</ol>
+  </nav>`;
+}
+
+async function sha256Text(value) {
+  const bytes = new TextEncoder().encode(value);
+  const hash = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function loadRenderDocument(record, env) {
+  let body;
+  if (record.body_storage === "d1") {
+    const result = await env.DB.prepare(`
+      SELECT d.byte_count, d.chunk_count, c.chunk_index, c.payload_base64
+      FROM judgment_body_documents d JOIN judgment_body_chunks c ON c.document_sha256 = d.sha256
+      WHERE d.sha256 = ?1 AND d.kind = 'render' ORDER BY c.chunk_index
+    `).bind(record.body_render_sha256).all();
+    const rows = result.results || [];
+    if (!rows.length || rows.length !== rows[0].chunk_count) throw new Error("Incomplete D1 judgment body");
+    const bytes = new Uint8Array(rows[0].byte_count);
+    let offset = 0;
+    for (const [index, row] of rows.entries()) {
+      if (row.chunk_index !== index || row.byte_count !== bytes.length || row.chunk_count !== rows.length) throw new Error("Invalid D1 body chunk sequence");
+      const chunk = Uint8Array.from(atob(row.payload_base64), (character) => character.charCodeAt(0));
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    if (offset !== bytes.length) throw new Error("D1 body byte count mismatch");
+    body = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } else {
+  if (!record.body_render_r2_key || !record.body_render_sha256 || !env.JUDGMENT_BODIES) {
+    throw new Error(`Validated body storage is unavailable for ${record.slug}`);
+  }
+  const object = await env.JUDGMENT_BODIES.get(record.body_render_r2_key);
+  if (!object) throw new Error(`Validated render object is missing for ${record.slug}`);
+  body = await object.text();
+  }
+  const hash = await sha256Text(body);
+  if (hash !== record.body_render_sha256) {
+    throw new Error(`Validated render hash mismatch for ${record.slug}`);
+  }
+  const document = JSON.parse(body);
+  if (
+    document.version !== "scr-body-v1"
+    || document.neutralCitation !== record.neutral_citation
+    || document.sourcePath !== record.source_path
+    || !Array.isArray(document.blocks)
+    || document.blocks.length === 0
+  ) {
+    throw new Error(`Validated render identity mismatch for ${record.slug}`);
+  }
+  return document;
+}
+
+async function judgmentSplitPilot(slug, env) {
+  const result = await env.DB.prepare(`
+    SELECT
+      slug, lower(substr(slug, -8)) AS public_id, decision_year, source_citation_year, title_source, scr_citation, neutral_citation,
+      decision_date_iso, source_listing_url, source_path, content_status
+    FROM judgments
+    WHERE slug = ?1
+    LIMIT 1
+  `).bind(slug).all();
+  const record = result.results?.[0];
+  const document = record ? pilotDocumentsByCitation.get(record.neutral_citation) : null;
+
+  if (!record || !document || record.source_path !== document.sourcePath) {
+    return htmlResponse(pageShell({
+      title: `Split View pilot unavailable | ${SITE_NAME}`,
+      description: "This judgment is not part of the bounded Split View pilot.",
+      canonical: `${SITE_ORIGIN}/judgments/${encodeURIComponent(slug)}`,
+      robots: "noindex, nofollow",
+      current: "judgments",
+      content: `<main id="main" tabindex="-1" class="message-page"><h1>Split View pilot unavailable.</h1><p>This judgment has not yet passed the pilot capture checks.</p><a class="read-link" href="/judgments/${encodeURIComponent(slug)}">← Return to the judgment record</a></main>`,
+    }), 404, "noindex, nofollow");
+  }
+
+  const content = `
+    <main id="main" tabindex="-1" class="detail-shell split-pilot-shell">
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <a href="${COURT_CATALOG}">Judgments</a><span aria-hidden="true">/</span>
+        <a href="${judgmentPath(record)}">${escapeHtml(record.neutral_citation)}</a><span aria-hidden="true">/</span>
+        <span>Split View pilot</span>
+      </nav>
+      <article>
+        <header class="detail-header split-pilot-header">
+          <p class="pilot-status">Pilot reading view · Not yet published</p>
+          <h1>${escapeHtml(record.title_source)}</h1>
+          <div class="detail-citations" role="group" aria-label="Citations">
+            <span>${escapeHtml(record.scr_citation)}</span>
+            <span>${escapeHtml(record.neutral_citation)}</span>
+            <time datetime="${escapeHtml(record.decision_date_iso)}">${escapeHtml(formatDate(record.decision_date_iso))}</time>
+          </div>
+        </header>
+        <section class="pilot-warning" aria-labelledby="pilot-warning-title">
+          <h2 id="pilot-warning-title">Source-fidelity review is still in progress</h2>
+          <p>This server-rendered preview uses ordered text blocks captured from the official SCR HTML view on ${escapeHtml(document.capturedAt)}. A supervised recapture on ${escapeHtml(document.revalidatedAt)} preserved the browser-serialized source DOM and matched these text blocks by SHA-256. Allowlisted emphasis, quotation levels, paragraph markers and footnote relationships are preserved without rendering source HTML. The original network-response bytes and complete assistive-technology review remain pending. This preview is not the official court document and must not be relied on as one.</p>
+        </section>
+        <div class="split-reading-layout">
+          <nav class="split-contents" aria-label="Judgment sections">
+            <h2>In this judgment</h2>
+            <ol>
+              <li><a href="#issue">Issue for consideration</a></li>
+              <li><a href="#headnotes">Headnotes</a></li>
+              <li><a href="#case-law">Case law cited</a></li>
+              <li><a href="#acts">Acts</a></li>
+              <li><a href="#keywords">Keywords</a></li>
+              <li><a href="#origin">Case arising from</a></li>
+              <li><a href="#appearances">Appearances</a></li>
+              <li><a href="#judgment">Judgment</a></li>
+              <li><a href="#result">Result</a></li>
+            </ol>
+            <dl class="pilot-provenance">
+              <div><dt>Captured</dt><dd>${escapeHtml(document.capturedAt)}</dd></div>
+              <div><dt>Revalidated</dt><dd>${escapeHtml(document.revalidatedAt)}</dd></div>
+              <div><dt>Words</dt><dd>${document.wordCount.toLocaleString("en-IN")}</dd></div>
+              <div><dt>Block hash</dt><dd><code>${escapeHtml(document.blockSha256.slice(0, 12))}…</code></dd></div>
+            </dl>
+          </nav>
+          <section class="judgment-reading" aria-label="Captured judgment text">
+            ${renderJudgmentBlocks(document.blocks)}
+          </section>
+        </div>
+        <footer class="attribution split-attribution">
+          <p><strong>Source:</strong> Supreme Court Reports (SCR). This independent pilot does not alter or replace the legal document. The authoritative source prevails.</p>
+          <p><a class="source-link" href="${escapeHtml(record.source_listing_url)}" rel="external">Open the Supreme Court Reports source <span aria-hidden="true">↗</span></a></p>
+        </footer>
+      </article>
+    </main>`;
+
+  return htmlResponse(pageShell({
+    title: `Split View pilot: ${record.title_source} | ${SITE_NAME}`,
+    description: `Non-indexed Split View pilot for ${record.title_source}, ${record.neutral_citation}.`,
+    canonical: `${SITE_ORIGIN}${judgmentPath(record)}`,
+    robots: "noindex, nofollow",
+    current: "judgments",
+    content,
+  }), 200, "noindex, nofollow");
+}
+
+async function homePage(env, articleReview = false) {
+  const releaseFilter = articleReview ? "" : "AND content_status = 'published'";
+  const [latestResult, countResult] = await env.DB.batch([
+    env.DB.prepare(`
+      SELECT
+        slug, lower(substr(slug, -8)) AS public_id, decision_year, source_citation_year, title_source, scr_citation, neutral_citation,
+        decision_date_iso, case_number_source, disposal_nature_source,
+        result_excerpt_source
+      FROM judgments
+      WHERE source_system = 'scr' AND source_citation_year = 2026 ${releaseFilter}
+      ORDER BY decision_date_iso DESC, id DESC
+      LIMIT 5
+    `),
+    env.DB.prepare(`
+      SELECT COUNT(*) AS total
+      FROM judgments
+      WHERE source_system = 'scr' AND source_citation_year = 2026 ${releaseFilter}
+    `),
+  ]);
+
+  const latest = latestResult.results || [];
+  const lead = latest[0] || null;
+  const total = Number(countResult.results?.[0]?.total || 0);
+  const latestItems = latest.map((record) => {
+    const date = dateParts(record.decision_date_iso);
+    return `
+      <article class="latest-row">
+        <time class="date-tile" datetime="${escapeHtml(record.decision_date_iso)}">
+          <span class="visually-hidden">${escapeHtml(date.label)}</span>
+          <span aria-hidden="true">${escapeHtml(date.month)}</span>
+          <strong aria-hidden="true">${escapeHtml(date.day)}</strong>
+        </time>
+        <div>
+          <h3><a href="${judgmentPath(record)}">${escapeHtml(displayCaseTitle(record.title_source))}</a></h3>
+          <p>${escapeHtml(record.neutral_citation)} <span aria-hidden="true">·</span> ${escapeHtml(record.scr_citation)}</p>
+        </div>
+      </article>`;
+  }).join("");
+
+  const leadContent = lead ? `
+    <article class="lead-record">
+      <h1>${escapeHtml(lead.title_source)}</h1>
+      <p class="lead-citations">
+        <span>${escapeHtml(lead.neutral_citation)}</span>
+        <span>${escapeHtml(lead.scr_citation)}</span>
+        <time datetime="${escapeHtml(lead.decision_date_iso)}">${escapeHtml(formatDate(lead.decision_date_iso))}</time>
+      </p>
+      <section aria-labelledby="lead-source-title">
+        <h2 id="lead-source-title">From the SCR record</h2>
+        <p class="lead-excerpt">${escapeHtml(lead.result_excerpt_source || "No listing excerpt was supplied by Supreme Court Reports.")}</p>
+      </section>
+      <dl class="lead-facts">
+        <div><dt>Case number</dt><dd>${escapeHtml(lead.case_number_source || "Not stated")}</dd></div>
+        <div><dt>Result</dt><dd>${escapeHtml(lead.disposal_nature_source || "Not stated by the source")}</dd></div>
+      </dl>
+      <a class="read-link" href="${judgmentPath(lead)}">View judgment record <span aria-hidden="true">→</span></a>
+    </article>` : `
+    <section class="empty-state" aria-labelledby="empty-home-title">
+      <h1 id="empty-home-title">The judgment library is being prepared.</h1>
+      <p>No verified judgment records are available yet.</p>
+    </section>`;
+
+  const featuredArticle=articleDrafts[0];
+  const companionArticles=articleDrafts.slice(1,10);
+  const homeImage=(a,featured=false)=>{const image=articleImages[a.id];return image?`<img src="${escapeHtml(featured?image.src:image.small)}" srcset="${image.variants.map(v=>`${escapeHtml(v.src)} ${v.width}w`).join(", ")}" sizes="${featured?'(min-width: 1424px) 886px, (min-width: 960px) calc((100vw - 76px) * .6667), calc(100vw - 20px)':'(max-width: 540px) 96px, 180px'}" width="1536" height="1024" alt="" ${featured?'fetchpriority="high"':'loading="lazy"'} decoding="async">`:'';};
+  const editorialLead=featuredArticle?`<section class="home-editorial" aria-labelledby="featured-label"><h2 id="featured-label" class="home-section-label">Featured article</h2><article class="home-featured"><a class="home-art-link" href="${escapeHtml(featuredArticle.proposed_article_path)}" aria-label="${escapeHtml(featuredArticle.title)}">${homeImage(featuredArticle,true)}</a><h1><a href="${escapeHtml(featuredArticle.proposed_article_path)}">${escapeHtml(featuredArticle.title)}</a></h1><p>${escapeHtml(featuredArticle.description)}</p></article><div class="home-section-heading"><h2 class="home-section-label">More articles</h2></div><div class="home-companions">${companionArticles.map(a=>`<article><a class="home-art-link" href="${escapeHtml(a.proposed_article_path)}" aria-label="${escapeHtml(a.title)}">${homeImage(a)}</a><div><h3><a href="${escapeHtml(a.proposed_article_path)}">${escapeHtml(a.title)}</a></h3><p>${escapeHtml(a.description)}</p></div></article>`).join('')}</div></section>`:'';
+  const content = `
+    <main id="main" tabindex="-1" class="home-shell${articleReview?' home-publication':''}">
+      ${articleReview?'':`      <section class="home-intro" aria-label="Publication introduction">
+        <p>Law in the public record, for a more informed India.</p>
+        ${articleReview?`<form class="home-judgment-search" action="${COURT_CATALOG}" method="get" role="search"><label class="visually-hidden" for="home-judgment-query">Search judgments by case name or citation</label><input id="home-judgment-query" name="q" type="search" placeholder="Search judgments by case name or citation"><button type="submit">Search</button></form>`:`<p>${total.toLocaleString("en-IN")} 2026 judgment ${total === 1 ? "record" : "records"}</p>`}
+      </section>
+`}
+      <div class="home-grid">
+        ${articleReview?editorialLead:`<section class="lead-column" aria-label="Latest judgment record">${leadContent}</section>`}
+        <aside class="latest-panel" aria-labelledby="latest-title">
+          <div class="section-heading">
+            <h2 id="latest-title">Latest judgments</h2>
+            <a href="${COURT_CATALOG}">View all</a>
+          </div>
+          <div class="latest-list">
+            ${latestItems || `<p class="empty-note">No judgments are available.</p>`}
+          </div>
+          ${articleReview?'':`<blockquote><p>A more open legal culture builds a more equal India.</p><cite>${SITE_NAME}</cite></blockquote>`}
+        </aside>
+      </div>
+    </main>`;
+
+  const robots = articleReview ? "noindex, nofollow" : total > 0 ? "index, follow" : "noindex, follow";
+  return htmlResponse(pageShell({
+    title: `${SITE_NAME} | Supreme Court judgments and legal journalism`,
+    description: "Find and verify Supreme Court judgments, source records and accessible legal journalism from The Legal Chronicles.",
+    canonical: `${SITE_ORIGIN}/`,
+    robots,
+    content,
+  }), 200, robots);
+}
+
 function queryString(values) {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(values)) {
@@ -116,6 +565,7 @@ function queryString(values) {
 
 async function listJudgments(request, env) {
   const url = new URL(request.url);
+  const localReview = isLocalArticleReview(request);
   const q = (url.searchParams.get("q") || "").trim().slice(0, 120);
   const caseType = (url.searchParams.get("case_type") || "").trim().slice(0, 100);
   const judge = (url.searchParams.get("judge") || "").trim().slice(0, 120);
@@ -123,9 +573,11 @@ async function listJudgments(request, env) {
   const offset = (page - 1) * PAGE_SIZE;
   const likeQuery = `%${q}%`;
 
+  const publicationFilter = localReview ? "" : "AND j.content_status = 'published'";
   const where = `
     j.source_system = 'scr'
     AND j.source_citation_year = 2026
+    ${publicationFilter}
     AND (?1 = '' OR j.title_source LIKE ?2 OR j.neutral_citation LIKE ?2 OR j.scr_citation LIKE ?2 OR j.case_number_source LIKE ?2)
     AND (?3 = '' OR j.case_type = ?3)
     AND (?4 = '' OR EXISTS (
@@ -139,7 +591,7 @@ async function listJudgments(request, env) {
   const [recordsResult, countResult, caseTypesResult, judgesResult] = await env.DB.batch([
     env.DB.prepare(`
       SELECT
-        j.slug, j.title_source, j.scr_citation, j.neutral_citation,
+        j.slug, lower(substr(j.slug, -8)) AS public_id, j.decision_year, j.source_citation_year, j.title_source, j.scr_citation, j.neutral_citation,
         j.decision_date_iso, j.case_number_source, j.case_type,
         j.disposal_nature_source, j.bench_size_source, j.coram_source,
         j.result_excerpt_source, j.content_status
@@ -153,7 +605,7 @@ async function listJudgments(request, env) {
     env.DB.prepare(`
       SELECT case_type, COUNT(*) AS records
       FROM judgments
-      WHERE source_system = 'scr' AND source_citation_year = 2026 AND case_type IS NOT NULL
+      WHERE source_system = 'scr' AND source_citation_year = 2026 ${localReview ? "" : "AND content_status = 'published'"} AND case_type IS NOT NULL
       GROUP BY case_type
       ORDER BY records DESC, case_type
     `),
@@ -162,7 +614,7 @@ async function listJudgments(request, env) {
       FROM judges AS judge
       JOIN judgment_judges AS jj ON jj.judge_id = judge.id
       JOIN judgments AS j ON j.id = jj.judgment_id
-      WHERE j.source_system = 'scr' AND j.source_citation_year = 2026
+      WHERE j.source_system = 'scr' AND j.source_citation_year = 2026 ${localReview ? "" : "AND j.content_status = 'published'"}
       GROUP BY judge.id
       ORDER BY records DESC, judge.name_normalized
     `),
@@ -174,13 +626,13 @@ async function listJudgments(request, env) {
   const safePage = Math.min(page, pages);
   if (page > pages && total > 0) {
     return Response.redirect(
-      `${url.origin}/judgments${queryString({ q, case_type: caseType, judge, page: pages })}`,
+      `${url.origin}${COURT_CATALOG}${queryString({ q, case_type: caseType, judge, page: pages })}`,
       302,
     );
   }
   const activeFilters = Boolean(q || caseType || judge);
-  const canonical = `${SITE_ORIGIN}/judgments${safePage > 1 ? `?page=${safePage}` : ""}`;
-  const robots = activeFilters ? "noindex, follow" : "index, follow";
+  const canonical = `${SITE_ORIGIN}${COURT_CATALOG}${safePage > 1 ? `?page=${safePage}` : ""}`;
+  const robots = localReview ? "noindex, nofollow" : activeFilters || total === 0 ? "noindex, follow" : "index, follow";
 
   const cards = records.map((record) => `
     <article class="judgment-card">
@@ -188,14 +640,14 @@ async function listJudgments(request, env) {
         <span>${escapeHtml(record.neutral_citation)}</span>
         <span>${escapeHtml(record.scr_citation)}</span>
       </div>
-      <h2><a href="/judgments/${encodeURIComponent(record.slug)}">${escapeHtml(record.title_source)}</a></h2>
+      <h2><a href="${judgmentPath(record)}">${escapeHtml(record.title_source)}</a></h2>
       <dl class="card-facts">
         <div><dt>Decision</dt><dd><time datetime="${escapeHtml(record.decision_date_iso)}">${escapeHtml(formatDate(record.decision_date_iso))}</time></dd></div>
         <div><dt>Case</dt><dd>${escapeHtml(record.case_number_source)}</dd></div>
         <div><dt>Bench</dt><dd>${escapeHtml(record.bench_size_source || "Not stated")}</dd></div>
       </dl>
       ${record.result_excerpt_source ? `<p class="excerpt">${escapeHtml(record.result_excerpt_source)}</p>` : ""}
-      <a class="read-link" href="/judgments/${encodeURIComponent(record.slug)}">View judgment record <span aria-hidden="true">→</span></a>
+      <a class="read-link" href="${judgmentPath(record)}">View judgment record <span aria-hidden="true">→</span></a>
     </article>
   `).join("");
 
@@ -212,20 +664,20 @@ async function listJudgments(request, env) {
 
   const baseParams = { q, case_type: caseType, judge };
   const previous = safePage > 1
-    ? `<a rel="prev" href="/judgments${queryString({ ...baseParams, page: safePage - 1 })}">← Previous</a>`
+    ? `<a rel="prev" href="${COURT_CATALOG}${queryString({ ...baseParams, page: safePage - 1 })}">← Previous</a>`
     : `<span aria-disabled="true">← Previous</span>`;
   const next = safePage < pages
-    ? `<a rel="next" href="/judgments${queryString({ ...baseParams, page: safePage + 1 })}">Next →</a>`
+    ? `<a rel="next" href="${COURT_CATALOG}${queryString({ ...baseParams, page: safePage + 1 })}">Next →</a>`
     : `<span aria-disabled="true">Next →</span>`;
 
   const content = `
-    <main id="main" class="catalog-shell">
+    <main id="main" tabindex="-1" class="catalog-shell">
       <section class="catalog-intro" aria-labelledby="catalog-title">
         <h1 id="catalog-title">Judgments, made findable.</h1>
         <p>Browse the verified 2026 SCR catalog by case, judge, citation, and decision details.</p>
         <p class="source-note">Source metadata: Supreme Court Reports (SCR). The authoritative source record prevails.</p>
       </section>
-      <form class="filters" action="/judgments" method="get" role="search">
+      <form class="filters" action="${COURT_CATALOG}" method="get" role="search">
         <label class="search-field">
           <span>Search judgments</span>
           <input type="search" name="q" value="${escapeHtml(q)}" placeholder="Case name, citation or number" autocomplete="off">
@@ -245,7 +697,7 @@ async function listJudgments(request, env) {
           </select>
         </label>
         <button type="submit">Apply filters</button>
-        ${activeFilters ? `<a class="clear-link" href="/judgments">Clear</a>` : ""}
+        ${activeFilters ? `<a class="clear-link" href="${COURT_CATALOG}">Clear</a>` : ""}
       </form>
       <section class="results" aria-labelledby="results-title">
         <div class="results-heading">
@@ -263,24 +715,27 @@ async function listJudgments(request, env) {
   `;
 
   return htmlResponse(pageShell({
-    title: `2026 Supreme Court Judgments | ${SITE_NAME}`,
-    description: "Browse verified 2026 Supreme Court Reports judgment metadata by case, judge, citation and decision details.",
+    title: `2026 Supreme Court Judgments${safePage > 1 ? ` — Page ${safePage}` : ""} | ${SITE_NAME}`,
+    description: `Browse verified 2026 Supreme Court Reports judgment metadata by case, judge, citation and decision details.${safePage > 1 ? ` Page ${safePage} of ${pages}.` : ""}`,
     canonical,
     robots,
+    current: "judgments",
     content,
   }), 200, robots);
 }
 
-async function judgmentDetail(slug, env) {
+async function judgmentDetail(slug, env, legacyRequest = null, articleReview = false) {
   const [recordResult, judgesResult, assetsResult] = await env.DB.batch([
     env.DB.prepare(`
       SELECT
-        id, slug, title_source, scr_citation, neutral_citation,
+        id, slug, lower(substr(slug, -8)) AS public_id, title_source, scr_citation, neutral_citation,
         decision_date_source, decision_date_iso, decision_year,
         case_number_source, case_type, disposal_nature_source,
         bench_size_source, bench_size, coram_source, result_excerpt_source,
         source_listing_url, source_citation_year, source_path,
-        content_status, source_checked_at
+        content_status, source_checked_at, body_render_r2_key, body_storage,
+        body_render_sha256, body_word_count, body_captured_at,
+        body_validated_at, body_validation_version
       FROM judgments
       WHERE slug = ?1
       LIMIT 1
@@ -302,21 +757,49 @@ async function judgmentDetail(slug, env) {
     `).bind(slug),
   ]);
   const record = recordResult.results?.[0];
+  const localReview = articleReview || Boolean(legacyRequest && isLocalArticleReview(legacyRequest));
+  if (record && record.content_status !== "published" && !localReview) {
+    return new Response("Judgment not found", {status:404,headers:{"X-Robots-Tag":"noindex, nofollow"}});
+  }
+  if (legacyRequest && record?.public_id) return Response.redirect(new URL(judgmentPath(record),legacyRequest.url).href,308);
   if (!record) {
     return htmlResponse(pageShell({
       title: `Judgment not found | ${SITE_NAME}`,
       description: "The requested judgment record could not be found.",
       canonical: `${SITE_ORIGIN}/judgments/${encodeURIComponent(slug)}`,
       robots: "noindex, nofollow",
-      content: `<main id="main" class="message-page"><h1>Judgment not found.</h1><p>The record may have moved or the address may be incorrect.</p><a class="read-link" href="/judgments">← Browse judgments</a></main>`,
+      content: `<main id="main" tabindex="-1" class="message-page"><h1>Judgment not found.</h1><p>The record may have moved or the address may be incorrect.</p><a class="read-link" href="${COURT_CATALOG}">← Browse judgments</a></main>`,
     }), 404, "noindex, nofollow");
   }
 
   const judges = judgesResult.results || [];
   const assets = assetsResult.results || [];
   const isPublished = record.content_status === "published";
+  const pilotDocument = pilotDocumentsByCitation.get(record.neutral_citation);
+  let bodyDocument = null;
+  let bodyMode = null;
+  if (record.content_status === "validated" || record.content_status === "published") {
+    try {
+      bodyDocument = await loadRenderDocument(record, env);
+      bodyMode = record.content_status;
+    } catch (error) {
+      console.error("Judgment body integrity error", error);
+      const canonical = `${SITE_ORIGIN}${judgmentPath(record)}`;
+      return htmlResponse(pageShell({
+        title: `Judgment temporarily unavailable | ${SITE_NAME}`,
+        description: "The verified judgment text is temporarily unavailable.",
+        canonical,
+        robots: "noindex, nofollow",
+        current: "judgments",
+        content: `<main id="main" tabindex="-1" class="message-page"><h1>The judgment text is temporarily unavailable.</h1><p>We detected a storage or integrity problem and have withheld the text rather than show an incomplete legal document.</p><a class="read-link" href="${COURT_CATALOG}">← Browse judgments</a></main>`,
+      }), 503, "noindex, nofollow");
+    }
+  } else if (pilotDocument && pilotDocument.sourcePath === record.source_path) {
+    bodyDocument = pilotDocument;
+    bodyMode = "pilot";
+  }
   const robots = isPublished ? "index, follow" : "noindex, follow";
-  const canonical = `${SITE_ORIGIN}/judgments/${encodeURIComponent(record.slug)}`;
+  const canonical = `${SITE_ORIGIN}${judgmentPath(record)}`;
   const assetLabels = {
     split_html: "Split view",
     html_view: "HTML view",
@@ -324,7 +807,7 @@ async function judgmentDetail(slug, env) {
     flip_view: "Flip view",
   };
   const judgeLinks = judges.length
-    ? judges.map((judge) => `${escapeHtml(judge.name_source)}${judge.is_author ? " (author)" : ""}`).join(", ")
+    ? judges.map((judge) => `<a href="/judges/supreme-court/${encodeURIComponent(judge.slug)}">${escapeHtml(judge.name_source)}</a>${judge.is_author ? " (author)" : ""}`).join(", ")
     : "Not stated by the source";
   const assetItems = assets.map((asset) => `
     <li>
@@ -332,33 +815,31 @@ async function judgmentDetail(slug, env) {
       <span>${asset.action_status === "listed" ? "Listed by SCR" : "Not listed"}</span>
     </li>
   `).join("");
-
+  const bodyStatus = bodyMode === "pilot"
+    ? `<section class="pilot-warning" aria-labelledby="body-status-title"><h2 id="body-status-title">Pilot text · Not yet published</h2><p>This source-attributed preview remains non-indexed while the complete 279-judgment corpus is collected and validated.</p></section>`
+    : bodyMode === "validated"
+      ? `<section class="pilot-warning" aria-labelledby="body-status-title"><h2 id="body-status-title">Validated text · Not yet published</h2><p>This judgment has passed automated source-fidelity checks and remains non-indexed until the complete 279-judgment release passes its final production gate.</p></section>`
+      : "";
   const content = `
-    <main id="main" class="detail-shell">
-      <nav class="breadcrumbs" aria-label="Breadcrumb">
-        <a href="/judgments">Judgments</a><span aria-hidden="true">/</span><span>2026</span>
-      </nav>
+    <main id="main" tabindex="-1" class="detail-shell reading-desk">
+      <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="${COURT_CATALOG}">Judgments</a><span aria-hidden="true">/</span><span>2026</span></nav>
       <article class="judgment-detail">
         <header class="detail-header">
           <h1>${escapeHtml(record.title_source)}</h1>
-          <div class="detail-citations" aria-label="Citations">
-            <span>${escapeHtml(record.scr_citation)}</span>
-            <span>${escapeHtml(record.neutral_citation)}</span>
-          </div>
+          ${bodyDocument ? '<a class="reading-action" href="#original-text">Read judgment</a>' : ''}
+          <div class="detail-citations" role="group" aria-label="Citations"><span>${escapeHtml(record.scr_citation)}</span><span>${escapeHtml(record.neutral_citation)}</span><time datetime="${escapeHtml(record.decision_date_iso)}">${escapeHtml(formatDate(record.decision_date_iso))}</time></div>
+          ${bodyStatus}
+          ${articleReview && articleDrafts.some(a=>a.id===record.public_id) ? `<p class="article-review-link"><a href="${escapeHtml(articleDrafts.find(a=>a.id===record.public_id).proposed_article_path)}">Read the draft explainer for this judgment</a> · Editorial review pending</p>` : ""}
         </header>
-        <section class="detail-layout" aria-label="Judgment record">
-          <div class="detail-main">
-            <section aria-labelledby="source-summary-title">
-              <h2 id="source-summary-title">Case summary from SCR</h2>
-              <p class="source-excerpt">${escapeHtml(record.result_excerpt_source || "No listing excerpt was supplied by SCR.")}</p>
-            </section>
-            <section class="content-notice" aria-labelledby="text-status-title">
-              <h2 id="text-status-title">Full judgment text is being verified.</h2>
-              <p>This page currently contains source metadata only. The complete SCR text will appear here only after its wording, order, sections, and footnotes pass fidelity checks.</p>
-            </section>
-          </div>
+        <div class="reading-desk-grid">
+          <div class="desk-navigation">${bodyDocument ? judgmentContents(bodyDocument.blocks) : ''}<a class="back-to-results" href="${COURT_CATALOG}">Back to judgments</a></div>
+          <section id="original-text" class="desk-document" aria-labelledby="judgment-text-title" tabindex="-1">
+            <h2 id="judgment-text-title" class="desk-document-label">Original SCR text</h2>
+            ${bodyDocument ? `<section class="judgment-reading" aria-label="Judgment text">${renderJudgmentBlocks(bodyDocument.blocks)}</section>` : `<section class="content-notice" aria-labelledby="text-status-title"><h2 id="text-status-title">Full judgment text is being verified.</h2><p>This page contains source metadata only. The original text is withheld until its source identity and fidelity are verified.</p></section>`}
+
+          </section>
           <aside class="record-panel" aria-labelledby="record-title">
-            <h2 id="record-title">Judgment record</h2>
+            <h2 id="record-title">Case facts</h2>
             <dl>
               <div><dt>Decision date</dt><dd><time datetime="${escapeHtml(record.decision_date_iso)}">${escapeHtml(formatDate(record.decision_date_iso))}</time></dd></div>
               <div><dt>Case number</dt><dd>${escapeHtml(record.case_number_source)}</dd></div>
@@ -367,25 +848,63 @@ async function judgmentDetail(slug, env) {
               <div><dt>Bench</dt><dd>${escapeHtml(record.bench_size_source || "Not stated")}</dd></div>
               <div><dt>Disposition</dt><dd>${escapeHtml(record.disposal_nature_source || "Not stated by the source")}</dd></div>
             </dl>
-            <h3>Source actions</h3>
-            <ul class="asset-list">${assetItems}</ul>
+
             <a class="source-link" href="${escapeHtml(record.source_listing_url)}" rel="external">View Supreme Court Reports source <span aria-hidden="true">↗</span></a>
           </aside>
-        </section>
-        <footer class="attribution">
-          <p><strong>Source:</strong> Supreme Court Reports (SCR). This independent record does not alter the legal document. The authoritative source prevails.</p>
-        </footer>
+        </div>
+        <footer class="attribution"><p><strong>Source:</strong> Supreme Court Reports (SCR). This independent record does not alter the legal document. The authoritative source prevails.</p></footer>
       </article>
     </main>
   `;
 
   return htmlResponse(pageShell({
     title: `${record.title_source} | ${record.neutral_citation}`,
-    description: `${record.title_source}. ${record.neutral_citation}; decided ${formatDate(record.decision_date_iso)}. Source metadata from Supreme Court Reports.`,
+    description: bodyDocument
+      ? `${record.title_source}. Complete judgment text for ${record.neutral_citation}; decided ${formatDate(record.decision_date_iso)}. Source: Supreme Court Reports.`
+      : `${record.title_source}. ${record.neutral_citation}; decided ${formatDate(record.decision_date_iso)}. Source metadata from Supreme Court Reports.`,
     canonical,
     robots,
+    current: "judgments",
     content,
   }), 200, robots);
+}
+
+function judgePortrait(name, directory=false) {
+ const portrait=judgePortraits.find(p=>p.name===name);
+ if(!portrait) return '';
+ const small=portrait.variants[0],large=portrait.variants[1];
+ return `<figure class="judge-portrait${directory?' judge-portrait-small':''}"><img src="${escapeHtml(large.path)}" srcset="${escapeHtml(small.path)} ${small.width}w, ${escapeHtml(large.path)} ${large.width}w" sizes="${directory?'72px':'(max-width: 44rem) 140px, (max-width: 60rem) 180px, 280px'}" width="${large.width}" height="${large.height}" alt="Portrait of ${escapeHtml(name)}" decoding="async" ${directory?'loading="lazy"':'loading="eager" fetchpriority="high"'}>${directory?'':`<figcaption><a href="${escapeHtml(portrait.source_url)}" rel="external">Photo: Supreme Court of India</a></figcaption>`}</figure>`;
+}
+async function judgesDirectory(env) {
+ let result;
+ try { result = await env.DB.prepare(`SELECT j.slug,p.display_name,p.role_at_retrieval,COUNT(jj.judgment_id) AS judgment_count FROM judge_profiles p JOIN judges j ON j.id=p.judge_id LEFT JOIN judgment_judges jj ON jj.judge_id=j.id GROUP BY j.id ORDER BY p.appointment_date,p.display_name`).all(); }
+ catch { return new Response('Judge profiles are not available.',{status:404,headers:{'X-Robots-Tag':'noindex, nofollow'}}); }
+ return htmlResponse(pageShell({title:`Supreme Court judges | ${SITE_NAME}`,description:'Official-source biographies and judgments in our collection.',canonical:`${SITE_ORIGIN}/judges/supreme-court`,robots:'noindex, follow',content:`<main id="main" tabindex="-1" class="catalog-shell"><section class="catalog-intro"><h1>Supreme Court judges</h1><p>Read official-source biographies and explore judgments in our collection.</p><p class="source-note">Current judges and former judges connected to our 2026 catalog. This is not a complete historical directory. Roles reflect the official source when retrieved.</p></section><div class="judge-directory">${(result.results||[]).map(p=>`<article class="judge-directory-item">${judgePortrait(p.display_name,true)}<div><h2><a href="/judges/supreme-court/${encodeURIComponent(p.slug)}">${escapeHtml(p.display_name)}</a></h2><p>${escapeHtml(p.role_at_retrieval)} · ${Number(p.judgment_count)} judgments in our collection</p></div></article>`).join('')}</div></main>`}),200,'noindex, follow');
+}
+async function judgeProfile(slug,request,env) {
+ let result;
+ try { result=await env.DB.prepare(`SELECT j.id,j.slug,j.name_source,p.* FROM judges j LEFT JOIN judge_profiles p ON p.judge_id=j.id WHERE j.slug=?1`).bind(slug).first(); }
+ catch { return new Response('Judge profiles are not available.',{status:404,headers:{'X-Robots-Tag':'noindex, nofollow'}}); }
+ if(!result) return new Response('Judge not found',{status:404,headers:{'X-Robots-Tag':'noindex, nofollow'}});
+ const counts=await env.DB.prepare(`SELECT COUNT(*) AS total,COALESCE(SUM(is_author),0) AS authored FROM judgment_judges WHERE judge_id=?1`).bind(result.id).first();
+ const judgments=await env.DB.prepare(`SELECT j.slug,lower(substr(j.slug, -8)) AS public_id,j.decision_year,j.source_citation_year,j.title_source,j.neutral_citation,j.decision_date_iso,jj.is_author FROM judgments j JOIN judgment_judges jj ON jj.judgment_id=j.id WHERE jj.judge_id=?1 ORDER BY j.decision_date_iso DESC,j.id DESC LIMIT 20`).bind(result.id).all();
+ let paragraphs=[];if(result.biography_json){paragraphs=JSON.parse(result.biography_json);if(await sha256Text(JSON.stringify(paragraphs))!==result.biography_sha256) throw Error('Judge biography integrity mismatch');}
+ const name=result.display_name||result.name_source;
+ const catalogHref=`${COURT_CATALOG}?judge=${encodeURIComponent(result.slug)}`;
+ const dates=result.source_url?`<dl class="judge-career-dates">${[['Date of birth',result.birth_date],['Supreme Court appointment',result.appointment_date],['Retirement date listed',result.retirement_date]].map(([label,date])=>`<div><dt>${label}</dt><dd>${date?`<time datetime="${escapeHtml(date)}">${escapeHtml(formatDate(date))}</time>`:'Not recorded'}</dd></div>`).join('')}</dl>`:'';
+ const sourceNote=result.source_url?`<p class="source-note judge-source"><a href="${escapeHtml(result.source_url)}" rel="external">Official biography source</a> · Retrieved <time datetime="${escapeHtml(result.retrieved_at)}">${escapeHtml(formatDate(result.retrieved_at.slice(0,10)))}</time>. Reproduced from the Supreme Court of India; roles reflect the source when retrieved.</p>`:'';
+ const collectionStats=`<dl class="judge-collection-stats"><div><dt>Bench appearances</dt><dd>${Number(counts.total)}</dd></div><div><dt>Records identify this judge as author</dt><dd>${Number(counts.authored)}</dd></div></dl>`;
+ const content=`<main id="main" tabindex="-1" class="detail-shell judge-profile">
+ <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/judges/supreme-court">Supreme Court judges</a></nav>
+ <header class="judge-identity${judgePortrait(name)?'':' judge-identity-no-photo'}">
+ ${judgePortrait(name)}
+ <div class="judge-identity-content"><p class="judge-court">Supreme Court of India</p><h1>${escapeHtml(name)}</h1><p class="judge-role">${escapeHtml(result.role_at_retrieval||'Biography not yet collected')}</p>${dates}
+ <div class="judge-collection"><div><p class="judge-collection-label">In our 2026 collection</p>${collectionStats}</div><a class="judge-primary-link" href="#judge-judgments-title">View judgments</a></div></div>
+ </header>
+ <nav class="judge-section-nav" aria-label="On this profile"><a href="#biography-title">Biography</a><a href="#judge-judgments-title">Judgments</a></nav>
+ <section class="judge-profile-section" aria-labelledby="biography-title"><div class="judge-section-label" aria-hidden="true">Biography</div><div class="judge-section-content"><h2 id="biography-title" tabindex="-1">Official biography</h2>${sourceNote}${paragraphs.length?paragraphs.map(p=>`<p class="judge-biography">${escapeHtml(p)}</p>`).join(''):'<p>An official biography has not yet been verified.</p>'}</div></section>
+ <section class="judge-profile-section judge-judgments" aria-labelledby="judge-judgments-title"><div class="judge-section-label" aria-hidden="true">Judgments</div><div class="judge-section-content"><div class="judge-section-heading"><h2 id="judge-judgments-title" tabindex="-1">Judgments in our 2026 collection</h2>${Number(counts.total)>0?`<a class="read-link" href="${catalogHref}">View all ${Number(counts.total)} judgments</a>`:''}</div><p class="judge-collection-note">${Number(counts.total)} bench appearances · ${Number(counts.authored)} records identify this judge as author. These counts describe our collected records, not the judge’s complete career or individual agreement with every opinion.</p>${(judgments.results||[]).map(j=>`<article><h3><a href="${judgmentPath(j)}">${escapeHtml(displayCaseTitle(j.title_source))}</a></h3><p class="source-note">${escapeHtml(j.neutral_citation)} · ${escapeHtml(formatDate(j.decision_date_iso))} · ${j.is_author?'Author identified by SCR':'Bench member'}</p></article>`).join('')||'<p>No judgments connected to this judge are currently in our collection.</p>'}${counts.total>20?`<a class="read-link judge-all-link" href="${catalogHref}">View all ${Number(counts.total)} judgments in the catalog</a>`:''}</div></section></main>`;
+ return htmlResponse(pageShell({title:`${name} | ${SITE_NAME}`,description:`Official-source biography of ${name} and judgments in our collection.`,person:name,canonical:`${SITE_ORIGIN}/judges/supreme-court/${encodeURIComponent(slug)}`,robots:'noindex, follow',content}),200,'noindex, follow');
 }
 
 async function apiJudgments(request, env) {
@@ -413,7 +932,7 @@ async function apiJudgments(request, env) {
   const [recordsResult, countResult] = await env.DB.batch([
     env.DB.prepare(`
       SELECT
-        j.slug, j.title_source, j.scr_citation, j.neutral_citation,
+        j.slug, lower(substr(j.slug, -8)) AS public_id, j.decision_year, j.source_citation_year, j.title_source, j.scr_citation, j.neutral_citation,
         j.decision_date_iso, j.case_number_source, j.case_type,
         j.disposal_nature_source, j.bench_size, j.bench_size_source,
         j.coram_source, j.result_excerpt_source, j.content_status,
@@ -453,7 +972,7 @@ async function apiJudgment(slug, env) {
   ] = await env.DB.batch([
     env.DB.prepare(`
       SELECT
-        slug, title_source, scr_citation, neutral_citation,
+        slug, lower(substr(slug, -8)) AS public_id, decision_year, source_citation_year, title_source, scr_citation, neutral_citation,
         decision_date_source, decision_date_iso, decision_year,
         case_number_source, case_type, disposal_nature_source,
         bench_size_source, bench_size, coram_source, result_excerpt_source,
@@ -637,28 +1156,120 @@ async function apiFilters(env) {
 
 async function sitemap(env) {
   const result = await env.DB.prepare(`
-    SELECT slug, updated_at
+    SELECT slug, lower(substr(slug, -8)) AS public_id, decision_year, source_citation_year, updated_at
     FROM judgments
     WHERE source_system = 'scr' AND content_status = 'published'
     ORDER BY id
   `).all();
-  const judgmentUrls = (result.results || []).map((record) => `
-  <url><loc>${SITE_ORIGIN}/judgments/${encodeURIComponent(record.slug)}</loc><lastmod>${escapeHtml(String(record.updated_at).slice(0, 10))}</lastmod></url>`).join("");
+  const published = result.results || [];
+  if (!published.length) return textResponse(`<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`, "application/xml; charset=utf-8", "public, max-age=300, s-maxage=3600");
+  const judgmentUrls = published.map((record) => `
+  <url><loc>${SITE_ORIGIN}${judgmentPath(record)}</loc><lastmod>${escapeHtml(String(record.updated_at).slice(0, 10))}</lastmod></url>`).join("");
   return textResponse(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${SITE_ORIGIN}/judgments</loc></url>${judgmentUrls}
+  <url><loc>${SITE_ORIGIN}/</loc></url>
+  <url><loc>${SITE_ORIGIN}${COURT_CATALOG}</loc></url>${judgmentUrls}
 </urlset>`, "application/xml; charset=utf-8", "public, max-age=300, s-maxage=3600");
 }
 
-function errorPage(error) {
+function llmsTxt() {
+  return textResponse(`# The Legal Chronicles
+
+> A judgment-first legal publication that preserves source material and clearly separates original records from editorial explanation.
+
+## Canonical pages
+
+- [Homepage](https://thelegalchronicles.com/): publication overview and latest records.
+- [Supreme Court judgment catalog](https://thelegalchronicles.com${COURT_CATALOG}): browse the canonical catalog by case, citation, judge, and decision details.
+- [XML sitemap](https://thelegalchronicles.com/sitemap.xml): canonical URLs eligible for discovery.
+
+## Source and attribution
+
+- Judgment records identify Supreme Court Reports (SCR) as their source and link to the source record.
+- The authoritative court or SCR material prevails over this independent publication.
+- Editorial explanations are separate from the original legal record and are published only after review.
+
+## Content status
+
+- Draft article URLs, local author review URLs, and unpublished judgment detail URLs are not enumerated here.
+- No llms-full.txt is provided. Use the canonical HTML page and its linked official source so the legal text remains tied to its source and publication status.
+`, "text/plain; charset=utf-8", "public, max-age=300, s-maxage=3600");
+}
+
+function errorPage(error, pathname = "/judgments") {
   console.error("Judgment catalog error", error);
+  const isHome = pathname === "/";
   return htmlResponse(pageShell({
-    title: `Catalog unavailable | ${SITE_NAME}`,
-    description: "The judgment catalog is temporarily unavailable.",
-    canonical: `${SITE_ORIGIN}/judgments`,
+    title: `${isHome ? "Site" : "Catalog"} unavailable | ${SITE_NAME}`,
+    description: `The ${isHome ? "website" : "judgment catalog"} is temporarily unavailable.`,
+    canonical: `${SITE_ORIGIN}${isHome ? "/" : "/judgments"}`,
     robots: "noindex, nofollow",
-    content: `<main id="main" class="message-page"><h1>The catalog is unavailable.</h1><p>Please try again shortly.</p><a class="read-link" href="/judgments">Retry <span aria-hidden="true">→</span></a></main>`,
+    content: `<main id="main" tabindex="-1" class="message-page"><h1>The ${isHome ? "site" : "catalog"} is unavailable.</h1><p>Please try again shortly.</p><a class="read-link" href="${isHome ? "/" : "/judgments"}">Retry <span aria-hidden="true">→</span></a></main>`,
   }), 503, "noindex, nofollow");
+}
+
+function isLocalArticleReview(request) {
+  return ['localhost', '127.0.0.1', '[::1]'].includes(new URL(request.url).hostname);
+}
+function articleArtwork(id, thumbnail = false, caseName = '', eager = false) {
+  const image = articleImages[id];
+  if (!image) return '';
+  return `<figure class="${thumbnail ? 'article-artwork-thumbnail' : 'article-artwork'}"><img src="${escapeHtml(thumbnail ? image.small : image.src)}" srcset="${image.variants.map(v=>`${escapeHtml(v.src)} ${v.width}w`).join(", ")}" sizes="${thumbnail ? '160px' : '(min-width: 1424px) 1078px, (min-width: 960px) calc(100vw - 346px), calc(100vw - 48px)'}" width="${image.width}" height="${image.height}" alt="${thumbnail ? '' : escapeHtml(image.alt)}" loading="${eager ? 'eager' : 'lazy'}"${eager ? ' fetchpriority="high"' : ''} decoding="async">${thumbnail ? '' : `<figcaption><span class="article-artwork-case">${escapeHtml(caseName)}</span></figcaption>`}</figure>`;
+}
+
+function articleReviewPage(url) {
+  const index = url.pathname === '/articles' || url.pathname === '/articles/';
+  const article = articleDrafts.find(a => a.proposed_article_path === url.pathname);
+  if (!index && !article) return new Response('Article draft not found', {status:404,headers:{'X-Robots-Tag':'noindex, nofollow'}});
+  let content;
+  if (index) {
+    const listingArticles=articleDrafts;
+    content = `<main id="main" tabindex="-1" class="article-index"><header class="article-index-header"><div><p class="article-eyebrow">Ideas and explanations</p><h1>Articles</h1><p>Understand the decisions shaping the law.</p></div><p class="article-index-collection">August 2026<span>20 judgment explainers</span></p></header><p class="article-index-scope">From judgments in our collection dated 3–12 August 2026. This selection does not cover every Supreme Court decision that month.</p><ol class="article-draft-list">${listingArticles.map((a,i)=>`<li${i===0?' class="article-list-featured"':''}><article><a class="article-list-image" href="${escapeHtml(a.proposed_article_path)}" aria-label="${escapeHtml(a.title)}">${articleArtwork(a.id,true,'',i===0).replace('sizes="160px"','sizes="(min-width: 960px) 640px, (min-width: 600px) 45vw, calc(100vw - 48px)"')}</a><div class="article-list-copy">${i===0?'<p class="article-list-label">Featured article</p>':''}<p class="article-list-meta"><time datetime="${escapeHtml(a.metadata.decision_date)}">${escapeHtml(formatDate(a.metadata.decision_date))}</time> · ${escapeHtml(a.metadata.citations.join(' · '))}</p><h2><a href="${escapeHtml(a.proposed_article_path)}">${escapeHtml(a.title)}</a></h2><p class="article-list-description">${escapeHtml(a.description)}</p></div></article></li>`).join('')}</ol></main>`;
+  } else {
+    const a=article,m=a.metadata;
+    const articlePosition=articleDrafts.findIndex(item=>item.id===a.id);
+    const previousArticle=articleDrafts[articlePosition-1];
+    const nextArticle=articleDrafts[articlePosition+1];
+    const adjacentArticles=`<nav class="article-pagination" aria-label="More articles">${previousArticle?`<a rel="prev" href="${escapeHtml(previousArticle.proposed_article_path)}"><span class="article-pagination-direction"><span aria-hidden="true">←</span> Previous article</span><strong>${escapeHtml(previousArticle.title)}</strong></a>`:'<div></div>'}${nextArticle?`<a rel="next" href="${escapeHtml(nextArticle.proposed_article_path)}"><span class="article-pagination-direction">Next article <span aria-hidden="true">→</span></span><strong>${escapeHtml(nextArticle.title)}</strong></a>`:''}</nav>`;
+    const prose=text=>{
+      let output=escapeHtml(text);
+      if(a.officialSource?.url) output=output.replace(/\((N\. Kotiswar Singh, J\., concurring, paragraphs? [^()]+?; official judgment PDF, page (\d+)\.)\)/giu,(match,reference,page)=>`(<a class="article-paragraph-reference" href="${escapeHtml(a.officialSource.url)}#page=${page}" rel="external">${reference}</a>)`);
+      return output.replace(/\((?:Judgment, )?[Pp]aragraphs?[^)]*\)/g,ref=>`<a class="article-paragraph-reference" href="${escapeHtml(m.judgment_path)}#judgment">${ref}</a>`);
+    };
+    const sections=[['case-details','Case at a glance'],...a.sections.map(([h],i)=>[`section-${i+1}`,h]),...(a.officialFollowup?[['official-followup',a.officialFollowup.title]]:[]),...(a.officialSource?[['official-source',a.officialSource.title]]:[]),...(a.source_note?[['source-discrepancy',a.source_note.title]]:[]),['question','A question this judgment answers'],['appearances','Lawyers and appearances'],['origin','Procedural origin']];
+  content=`<nav class="breadcrumbs article-breadcrumbs" aria-label="Breadcrumb"><ol><li><a class="breadcrumb-home" href="/" aria-label="Home"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9"/></svg></a></li><li><a href="/articles">Articles</a></li><li><span aria-current="page">${escapeHtml(m.case_name)}</span></li></ol></nav><main id="main" tabindex="-1" class="article-reader"><article><header><h1>${escapeHtml(a.title)}</h1><div class="article-byline"><p>By <a class="article-author" href="/authors/yashodhan-deshmukh">${escapeHtml(a.human_author || "Yashodhan Deshmukh")}</a></p><p>Draft prepared <time datetime="${escapeHtml(a.drafted_at)}">${escapeHtml(formatDate(a.drafted_at))}</time></p>${a.updated_at?`<p>Updated <time datetime="${escapeHtml(a.updated_at)}">${escapeHtml(formatDate(a.updated_at))}</time></p>`:''}</div><p class="article-summary">${prose(a.answer)}</p></header><div class="article-reading-layout"><div class="article-body">${articleArtwork(a.id,false,m.case_name,true)}${a.sections.map(([h,p],i)=>`<section aria-labelledby="section-${i+1}"><h2 id="section-${i+1}" tabindex="-1">${escapeHtml(h)}</h2><p>${prose(p)}</p></section>`).join('')}${a.officialFollowup?`<section aria-labelledby="official-followup"><h2 id="official-followup" tabindex="-1">${escapeHtml(a.officialFollowup.title)}</h2><p>${escapeHtml(a.officialFollowup.text)}</p><p><a href="${escapeHtml(a.officialFollowup.url)}" rel="external">${escapeHtml(a.officialFollowup.link_label)}</a></p></section>`:''}${a.officialSource?`<section aria-labelledby="official-source"><h2 id="official-source" tabindex="-1">${escapeHtml(a.officialSource.title)}</h2><p>${escapeHtml(a.officialSource.text)}</p><p><a href="${escapeHtml(a.officialSource.url)}" rel="external">${escapeHtml(a.officialSource.link_label)}</a></p><ul>${a.officialSource.paragraph_pages.map(item=>`<li><a href="${escapeHtml(a.officialSource.url)}#page=${item.page}" rel="external">${escapeHtml(item.label)}</a></li>`).join('')}</ul></section>`:''}${a.source_note?`<section aria-labelledby="source-discrepancy"><h2 id="source-discrepancy" tabindex="-1">${escapeHtml(a.source_note.title)}</h2><p>${escapeHtml(a.source_note.text)}</p><p><a href="${escapeHtml(a.source_note.url)}" rel="external">${escapeHtml(a.source_note.link_label)}</a></p></section>`:''}<section aria-labelledby="question"><h2 id="question" tabindex="-1">A question this judgment answers</h2><h3>${escapeHtml(a.question)}</h3><p>${prose(a.reply)}</p></section><section aria-labelledby="appearances"><h2 id="appearances" tabindex="-1">Lawyers and appearances recorded by SCR</h2><p>The following retains the source’s grouping and designations. It does not establish each lawyer’s role in every connected proceeding.</p><ul>${m.appearances.map(p=>`<li>${escapeHtml(p)}</li>`).join('')||'<li>No separate appearance list in this capture.</li>'}</ul></section><section aria-labelledby="origin"><h2 id="origin" tabindex="-1">Procedural origin recorded by SCR</h2>${m.origin.map(p=>`<p>${escapeHtml(p)}</p>`).join('')||'<p>Not separately recorded.</p>'}</section></div><aside class="article-sidebar" aria-label="Article navigation and case details"><nav class="article-contents" aria-label="In this article"><h2>In this article</h2><ol>${sections.map(([id,h])=>`<li><a href="#${id}">${escapeHtml(h)}</a></li>`).join('')}</ol></nav><section aria-labelledby="case-details"><h2 id="case-details" tabindex="-1">Case at a glance</h2><dl class="article-case-details">${[['Case',m.case_name],['Citations',m.citations.join(' · ')],['Court',m.court],['Judgment delivered',formatDate(m.decision_date)],['Case numbers',m.case_numbers.join('; ')],['Bench as recorded',m.bench.join('; ')],['Judgment author as recorded',m.judgment_author.join('; ')||'Not separately identified in the captured author field'],['Acts and rules listed by SCR',m.acts_listed_by_scr.join('; ')||'Not separately listed in this capture']].map(([k,v])=>`<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl></section></aside></div><div class="article-closing"><section class="article-next-step" aria-labelledby="read-judgment"><p class="article-eyebrow">The original decision</p><h2 id="read-judgment">Go deeper into the judgment</h2><p class="article-source-intro">Read the Court’s reasoning, operative directions and the captured SCR report in full.</p><p>${escapeHtml(m.case_name)}</p><p class="article-case-line">${escapeHtml(m.citations.join(" · "))}</p><p class="article-source-provenance"><a href="${escapeHtml(m.source_url)}" rel="external">Official SCR source</a> · Source retrieved <time datetime="${escapeHtml(m.source_retrieved_at)}">${escapeHtml(formatDate(m.source_retrieved_at.slice(0,10)))}</time></p><a class="article-source-action" href="${escapeHtml(m.judgment_path)}">Read the full judgment <span aria-hidden="true">↗</span></a></section></div>${adjacentArticles}</article></main>`;
+  }
+  const response=htmlResponse(pageShell({title:`${index?'Articles — August 2026':article.title} | ${SITE_NAME}`,description:index?'Explore 20 explainers for Supreme Court judgments in our collection dated 3–12 August 2026.':article.description,canonical:`${url.origin}${index?'/articles':article.proposed_article_path}`,robots:'noindex, nofollow',content,article:index?undefined:article,image:index?undefined:articleImages[article.id],breadcrumbs:index?[]:[{name:'Home',url:url.origin+'/'},{name:'Articles',url:url.origin+'/articles'},{name:article.metadata.case_name,url:url.href}]}),200,'noindex, nofollow');
+  response.headers.set('cache-control','no-store');
+  return response;
+}
+
+function publicationReviewPage(url) {
+  const authorPath='/authors/'+authorProfile.slug;
+  const isAuthor=url.pathname===authorPath;
+  const isPolicy=url.pathname==='/editorial-policy';
+  if(!isAuthor && !isPolicy && url.pathname!=='/corrections') return new Response('Not found',{status:404,headers:{'X-Robots-Tag':'noindex, nofollow'}});
+  const title=isAuthor?authorProfile.name:isPolicy?'Editorial policy':'Corrections';
+  const description=isAuthor?authorProfile.bio:isPolicy?'Source integrity, authorship, review and correction standards proposed for The Legal Chronicles.':'How to report a factual error, source discrepancy or accessibility issue to The Legal Chronicles.';
+  const links=`<nav class="publication-links" aria-label="Publication information">${[[authorPath,'About the author'],['/editorial-policy','Editorial policy'],['/corrections','Corrections']].map(([path,label])=>`<a href="${path}"${url.pathname===path?' aria-current="page"':''}>${label}</a>`).join('')}</nav>`;
+  let body;
+  if(isAuthor) {
+    body=`<header class="publication-header"><p class="publication-eyebrow">Author</p><h1>${escapeHtml(authorProfile.name)}</h1><p class="publication-intro">${escapeHtml(authorProfile.bio)}</p></header><div class="publication-layout"><section aria-labelledby="author-articles"><h2 id="author-articles">Articles by ${escapeHtml(authorProfile.name)}</h2><p class="publication-note">These 20 judgment explainers are available locally for editorial review and have not been published.</p><ol class="author-article-list">${articleDrafts.map(a=>`<li><h3><a href="${escapeHtml(a.proposed_article_path)}">${escapeHtml(a.title)}</a></h3><p>${escapeHtml(a.description)}</p></li>`).join('')}</ol></section><aside aria-label="Author and publication"><h2>Author details</h2><dl><dt>Affiliation</dt><dd>Founder, ${escapeHtml(authorProfile.affiliation)}</dd><dt>Writing experience</dt><dd>Three years in the legal space</dd><dt>Bio updated</dt><dd><time datetime="${authorProfile.confirmedOn}">${escapeHtml(formatDate(authorProfile.confirmedOn))}</time></dd></dl>${links}</aside></div>`;
+  } else if(isPolicy) {
+    body=`<header class="publication-header"><p class="publication-eyebrow">Publication standards · Draft for review</p><h1>Editorial policy</h1><p class="publication-intro">The judgment is the source. Our role is to preserve the record and help readers understand it.</p><p class="publication-note">Prepared <time datetime="2026-10-13">13 October 2026</time>. These are proposed standards for review, not a statement that the current drafts are ready for publication.</p></header><div class="publication-layout"><div>${editorialPolicySections.map(([id,h,paragraphs])=>`<section aria-labelledby="${id}"><h2 id="${id}" tabindex="-1">${escapeHtml(h)}</h2>${paragraphs.map(p=>`<p>${escapeHtml(p)}</p>`).join('')}${id==='dates'?'<p><a href="/corrections">How to request a correction</a></p>':''}</section>`).join('')}</div><aside><nav class="publication-contents" aria-label="In this policy"><h2>In this policy</h2><ol>${editorialPolicySections.map(([id,h])=>`<li><a href="#${id}">${escapeHtml(h)}</a></li>`).join('')}</ol></nav>${links}</aside></div>`;
+  } else {
+    const contact=correctionsEmail?`<a class="corrections-email" href="mailto:${escapeHtml(correctionsEmail)}">${escapeHtml(correctionsEmail)}</a>`:'<p class="publication-note">The corrections email is being confirmed before this page is published. No report form or message submission is active in this local preview.</p>';
+    body=`<header class="publication-header"><p class="publication-eyebrow">Accuracy and accountability</p><h1>Request a correction</h1><p class="publication-intro">Help us keep the record accurate and the explanation clear.</p></header><div class="publication-layout"><div><section aria-labelledby="corrections-contact"><h2 id="corrections-contact">Corrections contact</h2>${contact}<p>Use this contact for factual errors, citation or attribution problems, source discrepancies and accessibility issues. Please do not send confidential case files or sensitive personal information.</p></section><section aria-labelledby="report-details"><h2 id="report-details">What to include</h2><ul><li>The page URL and the passage you believe needs correction.</li><li>A short explanation of the issue and the correction you suggest.</li><li>A judgment citation, paragraph reference or authoritative source link that supports your report, where available.</li></ul></section><section aria-labelledby="corrections-process"><h2 id="corrections-process">How corrections will be handled</h2><p>Reports should be checked against the underlying source. A verified substantive correction should identify what changed and when; an unresolved material error may require the article to be withheld or withdrawn. Minor formatting fixes should not change the meaning of the record.</p><p>This process is proposed for the publication’s launch. No response-time commitment or completed legal review is implied by this preview.</p><p><a href="/editorial-policy#dates">Read the corrections standard</a></p></section></div><aside><h2>The source remains authoritative</h2><p>An editorial correction does not change a court judgment. A discrepancy in reproduced source material must be checked against the authoritative court source.</p>${links}</aside></div>`;
+  }
+  if(isAuthor) body=body.replace('These 20 judgment explainers',`These ${articleDrafts.length} judgment explainers`).replace('Three years in the legal space</dd>','Three years in the legal space, as of October 2026</dd>').replace('Bio updated</dt>','Bio confirmed</dt>');
+  if(isPolicy) {
+    const contents=`<nav class="publication-contents policy-jump-links" aria-label="In this policy"><h2>In this policy</h2><ol>${editorialPolicySections.map(([id,h])=>`<li><a href="#${id}">${escapeHtml(h)}</a></li>`).join('')}</ol></nav>`;
+    body=body.replace('<div class="publication-layout">',contents+'<div class="publication-layout">').replace(/<nav class="publication-contents" aria-label="In this policy">.*?<\/nav>/,'<h2>Questions or corrections?</h2><p>For factual errors, attribution problems or source discrepancies, '+(correctionsEmail?`email <a href="mailto:${escapeHtml(correctionsEmail)}">${escapeHtml(correctionsEmail)}</a>.`:'visit our corrections page.')+'</p><p><a href="/corrections">What to include in your report</a></p>');
+  }
+  const content=`<nav class="breadcrumbs publication-breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span aria-current="page">${escapeHtml(title)}</span></nav><main id="main" tabindex="-1" class="publication-page">${body}</main>`;
+  const response=htmlResponse(pageShell({title:`${title} | ${SITE_NAME}`,description,canonical:url.origin+url.pathname,robots:'noindex, nofollow',content,person:isAuthor?{name:authorProfile.name,description:authorProfile.bio}:undefined,breadcrumbs:[{name:'Home',url:url.origin+'/'},{name:title,url:url.origin+url.pathname}]}),200,'noindex, nofollow');
+  response.headers.set('cache-control','no-store');return response;
 }
 
 export default {
@@ -667,10 +1278,32 @@ export default {
     try {
       const readable = request.method === "GET" || request.method === "HEAD";
       let response;
-      if (readable && (url.pathname === "/judgments" || url.pathname === "/judgments/")) {
+      if (readable && ['thelegalchronicles.com','www.thelegalchronicles.com'].includes(url.hostname) && (url.protocol !== 'https:' || url.hostname !== 'thelegalchronicles.com')) {
+        const destination = new URL(url); destination.protocol='https:'; destination.hostname='thelegalchronicles.com'; destination.port='';
+        return Response.redirect(destination.href,308);
+      }
+      if (readable && (url.pathname.startsWith('/authors/') || ['/editorial-policy','/corrections'].includes(url.pathname))) {
+        response=isLocalArticleReview(request)?publicationReviewPage(url):new Response('Not found',{status:404,headers:{'X-Robots-Tag':'noindex, nofollow'}});
+      } else if (readable && (url.pathname === "/articles" || url.pathname.startsWith("/articles/"))) {
+        response = isLocalArticleReview(request) ? articleReviewPage(url) : new Response("Not found", {status:404,headers:{"X-Robots-Tag":"noindex, nofollow"}});
+      } else if (readable && url.pathname === "/") {
+        response = await homePage(env, isLocalArticleReview(request));
+      } else if (readable && url.pathname === '/judges/supreme-court') {
+        response = await judgesDirectory(env);
+      } else if (readable && /^\/judges\/supreme-court\/[^/]+$/.test(url.pathname)) {
+        response = await judgeProfile(decodeURIComponent(url.pathname.split('/').at(-1)),request,env);
+      } else if (readable && /^\/judgments\/supreme-court\/2026\/?$/.test(url.pathname)) {
         response = await listJudgments(request, env);
+      } else if (readable && /^\/judgments\/supreme-court\/\d{4}\/[^/]+-[a-z0-9]{8}\/?$/.test(url.pathname)) {
+        const parts = url.pathname.replace(/\/$/, '').split('/');
+        response = await canonicalJudgment(request, env, parts[4].slice(-8), parts[3]);
+      } else if (readable && (url.pathname === "/judgments" || url.pathname === "/judgments/")) {
+        response = Response.redirect(new URL(COURT_CATALOG + url.search,request.url).href,308);
+      } else if (readable && /^\/judgments\/[^/]+\/split$/.test(url.pathname)) {
+        const slug = decodeURIComponent(url.pathname.slice("/judgments/".length, -"/split".length));
+        response = Response.redirect(`${SITE_ORIGIN}/judgments/${encodeURIComponent(slug)}`, 308);
       } else if (readable && /^\/judgments\/[^/]+$/.test(url.pathname)) {
-        response = await judgmentDetail(decodeURIComponent(url.pathname.slice("/judgments/".length)), env);
+        response = await judgmentDetail(decodeURIComponent(url.pathname.slice('/judgments/'.length)),env,request);
       } else if (readable && url.pathname === "/api/v1/judgments") {
         response = await apiJudgments(request, env);
       } else if (readable && /^\/api\/v1\/judgments\/[^/]+$/.test(url.pathname)) {
@@ -681,16 +1314,22 @@ export default {
         response = jsonResponse({ ok: true, service: "judgment-catalog", version: 1 });
       } else if (readable && url.pathname === "/robots.txt") {
         response = textResponse(`User-agent: *\nDisallow: /api/\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`, "text/plain; charset=utf-8");
+      } else if (readable && url.pathname === "/llms.txt") {
+        response = llmsTxt();
       } else if (readable && url.pathname === "/sitemap.xml") {
         response = await sitemap(env);
       } else {
         response = await env.ASSETS.fetch(request);
       }
+      if (isLocalArticleReview(request) && response.headers.get('content-type')?.includes('text/html')) {
+        const html = (await response.text()).replace('About the publication</a></nav>', 'About the publication</a><a href="/editorial-policy">Editorial policy</a><a href="/corrections">Corrections</a></nav>').replaceAll('<a href="/judges/supreme-court">Judges</a>', '<a href="/articles">Articles</a><a href="/judges/supreme-court">Judges</a>');
+        response = new Response(html, {status:response.status,headers:response.headers});
+      }
       return request.method === "HEAD" ? bodyless(response) : response;
     } catch (error) {
       const response = url.pathname.startsWith("/api/")
         ? jsonResponse({ error: "Catalog temporarily unavailable" }, 503)
-        : errorPage(error);
+        : errorPage(error, url.pathname);
       console.error("Catalog request error", error);
       return request.method === "HEAD" ? bodyless(response) : response;
     }
