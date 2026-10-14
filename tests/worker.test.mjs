@@ -136,22 +136,41 @@ test("homepage database failures return a bounded noindex page with the home can
   assert.match(html, /href="\/">Retry/);
 });
 
-test("public homepage hides unpublished records and stays noindex until the first release", async () => {
+test("public homepage restores validated SCR metadata while judgment pages stay unpublished", async () => {
   const statements = [];
   const env = {
     ...assetsResponse(),
     DB: {
       prepare(sql) { statements.push(sql); return {}; },
-      batch: async () => [{ results: [] }, { results: [{ total: 0 }] }],
+      batch: async () => [
+        { results: [{
+          slug: "held-case-a1b2c3d4",
+          title_source: "Held Case v. State",
+          neutral_citation: "2026 INSC 1",
+          scr_citation: "[2026] 1 S.C.R. 1",
+          decision_date_iso: "2026-01-02",
+          case_number_source: "Civil Appeal No. 1/2026",
+          disposal_nature_source: "Appeal allowed",
+          result_excerpt_source: "SCR source excerpt.",
+          source_listing_url: "https://scr.sci.gov.in/scrsearch/?p=pdf_search/home",
+          content_status: "validated",
+        }] },
+        { results: [{ total: 278 }] },
+      ],
     },
   };
   const response = await worker.fetch(new Request("https://thelegalchronicles.com/"), env);
   const html = await response.text();
 
   assert.equal(response.status, 200);
-  assert.equal(response.headers.get("x-robots-tag"), "noindex, follow");
-  assert.ok(statements.every((sql) => sql.includes("content_status = 'published'")));
-  assert.match(html, /The judgment library is being prepared/);
+  assert.equal(response.headers.get("x-robots-tag"), "index, follow");
+  assert.ok(statements.every((sql) => sql.includes("content_status IN ('validated', 'published')")));
+  assert.match(html, /278 2026 judgment records/);
+  assert.match(html, /Held Case v\. State/);
+  assert.match(html, /Open the SCR source record/);
+  assert.match(html, /href="https:\/\/scr\.sci\.gov\.in\/scrsearch\/\?p=pdf_search\/home" rel="external"/);
+  assert.doesNotMatch(html, /href="\/judgments\/supreme-court\/2026\/held-case-a1b2c3d4"/);
+  assert.doesNotMatch(html, /href="\/articles\//);
 });
 
 test("a missing judgment returns an accessible noindex page", async () => {
@@ -213,13 +232,28 @@ test("the judgment list renders source data as escaped server HTML", async () =>
   assert.doesNotMatch(html, /class="eyebrow"/);
 });
 
-test("public catalog queries expose only published records and facets", async () => {
+test("public catalog queries expose validated metadata but link to SCR until details are published", async () => {
   const statements = [];
   const env = {
     ...assetsResponse(),
     DB: {
       prepare(sql) { statements.push(sql); return { bind() { return this; } }; },
-      batch: async () => [{ results: [] }, { results: [{ total: 0 }] }, { results: [] }, { results: [] }],
+      batch: async () => [
+        { results: [{
+          slug: "held-case-a1b2c3d4",
+          title_source: "Held Case v. State",
+          neutral_citation: "2026 INSC 1",
+          scr_citation: "[2026] 1 S.C.R. 1",
+          decision_date_iso: "2026-01-02",
+          case_number_source: "Civil Appeal No. 1/2026",
+          result_excerpt_source: "SCR excerpt.",
+          source_listing_url: "https://scr.sci.gov.in/scrsearch/?p=pdf_search/home",
+          content_status: "validated",
+        }] },
+        { results: [{ total: 1 }] },
+        { results: [] },
+        { results: [] },
+      ],
     },
   };
   const response = await worker.fetch(
@@ -229,10 +263,13 @@ test("public catalog queries expose only published records and facets", async ()
   const html = await response.text();
 
   assert.equal(response.status, 200);
-  assert.equal(response.headers.get("x-robots-tag"), "noindex, follow");
+  assert.equal(response.headers.get("x-robots-tag"), "index, follow");
   assert.equal(statements.length, 4);
-  assert.ok(statements.every((sql) => sql.includes("content_status = 'published'")));
-  assert.match(html, /No judgments found/);
+  assert.ok(statements.every((sql) => sql.includes("content_status IN ('validated', 'published')")));
+  assert.match(html, /1 judgment</);
+  assert.match(html, /Held Case v\. State/);
+  assert.match(html, /Open the SCR source record/);
+  assert.doesNotMatch(html, /href="\/judgments\/supreme-court\/2026\/held-case-a1b2c3d4"/);
 });
 
 test("out-of-range listing pages redirect to the last available page", async () => {
@@ -467,7 +504,7 @@ test("read-only judgment APIs return records, relationships, filters, and pagina
   const detailEnv = {
     ...assetsResponse(),
     DB: databaseBatch([
-      { results: [{ slug: "example-case", content_status: "metadata_only" }] },
+      { results: [{ slug: "example-case", content_status: "published" }] },
       { results: [{ slug: "judge-example", name_source: "Justice Example" }] },
       { results: [{ asset_kind: "source_pdf", action_status: "listed" }] },
       { results: [{
@@ -529,7 +566,7 @@ test("read-only judgment APIs return records, relationships, filters, and pagina
   assert.equal(filters.data.judges[0].label, "Justice Example");
 });
 
-test("judgment API keeps unmatched case enrichment explicit without inventing a case", async () => {
+test("unpublished judgment detail API is withheld", async () => {
   const env = {
     ...assetsResponse(),
     DB: databaseBatch([
@@ -552,14 +589,8 @@ test("judgment API keeps unmatched case enrichment explicit without inventing a 
     new Request("https://thelegalchronicles.com/api/v1/judgments/unmatched-case"),
     env,
   );
-  const detail = await response.json();
-
-  assert.equal(response.status, 200);
-  assert.equal(detail.data.case_enrichment.lookup_status, "not_found");
-  assert.equal(detail.data.case_enrichment.verification_status, "unmatched");
-  assert.equal(detail.data.case_enrichment.case, null);
-  assert.deepEqual(detail.data.case_enrichment.official_documents, []);
-  assert.doesNotMatch(JSON.stringify(detail), /raw_payload|r2_key|dataset_sha256/);
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { error: "Judgment not found" });
 });
 
 test("sitemap includes the canonical indexable set only after a judgment is published", async () => {

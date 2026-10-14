@@ -78,6 +78,15 @@ function textResponse(value, contentType, cacheControl = "public, max-age=300") 
   });
 }
 
+function officialScrUrl(value) {
+  try {
+    const url = new URL(value || "");
+    return url.protocol === "https:" && url.hostname === "scr.sci.gov.in" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
 function bodyless(response) {
   return new Response(null, {
     status: response.status,
@@ -455,13 +464,16 @@ async function judgmentSplitPilot(slug, env) {
 }
 
 async function homePage(env, articleReview = false) {
-  const releaseFilter = articleReview ? "" : "AND content_status = 'published'";
+  // Validated SCR listing metadata is safe to browse before the full judgment
+  // page is released. Article copy and judgment text remain behind their
+  // publication gates.
+  const releaseFilter = articleReview ? "" : "AND content_status IN ('validated', 'published')";
   const [latestResult, countResult] = await env.DB.batch([
     env.DB.prepare(`
       SELECT
         slug, lower(substr(slug, -8)) AS public_id, decision_year, source_citation_year, title_source, scr_citation, neutral_citation,
         decision_date_iso, case_number_source, disposal_nature_source,
-        result_excerpt_source
+        result_excerpt_source, source_listing_url, content_status
       FROM judgments
       WHERE source_system = 'scr' AND source_citation_year = 2026 ${releaseFilter}
       ORDER BY decision_date_iso DESC, id DESC
@@ -479,6 +491,12 @@ async function homePage(env, articleReview = false) {
   const total = Number(countResult.results?.[0]?.total || 0);
   const latestItems = latest.map((record) => {
     const date = dateParts(record.decision_date_iso);
+    const isPublicDetail = record.content_status === "published" || articleReview;
+    const sourceHref = officialScrUrl(record.source_listing_url);
+    const href = isPublicDetail ? judgmentPath(record) : sourceHref;
+    const title = href
+      ? `<a href="${escapeHtml(href)}"${isPublicDetail ? "" : ' rel="external"'}>${escapeHtml(displayCaseTitle(record.title_source))}</a>`
+      : escapeHtml(displayCaseTitle(record.title_source));
     return `
       <article class="latest-row">
         <time class="date-tile" datetime="${escapeHtml(record.decision_date_iso)}">
@@ -487,7 +505,7 @@ async function homePage(env, articleReview = false) {
           <strong aria-hidden="true">${escapeHtml(date.day)}</strong>
         </time>
         <div>
-          <h3><a href="${judgmentPath(record)}">${escapeHtml(displayCaseTitle(record.title_source))}</a></h3>
+          <h3>${title}</h3>
           <p>${escapeHtml(record.neutral_citation)} <span aria-hidden="true">·</span> ${escapeHtml(record.scr_citation)}</p>
         </div>
       </article>`;
@@ -509,7 +527,11 @@ async function homePage(env, articleReview = false) {
         <div><dt>Case number</dt><dd>${escapeHtml(lead.case_number_source || "Not stated")}</dd></div>
         <div><dt>Result</dt><dd>${escapeHtml(lead.disposal_nature_source || "Not stated by the source")}</dd></div>
       </dl>
-      <a class="read-link" href="${judgmentPath(lead)}">View judgment record <span aria-hidden="true">→</span></a>
+      ${lead.content_status === "published" || articleReview
+        ? `<a class="read-link" href="${judgmentPath(lead)}">View judgment record <span aria-hidden="true">→</span></a>`
+        : officialScrUrl(lead.source_listing_url)
+          ? `<a class="read-link" href="${escapeHtml(officialScrUrl(lead.source_listing_url))}" rel="external">Open the SCR source record <span aria-hidden="true">↗</span></a>`
+          : `<p class="source-note">SCR listing metadata · Judgment page not yet published</p>`}
     </article>` : `
     <section class="empty-state" aria-labelledby="empty-home-title">
       <h1 id="empty-home-title">The judgment library is being prepared.</h1>
@@ -573,7 +595,7 @@ async function listJudgments(request, env) {
   const offset = (page - 1) * PAGE_SIZE;
   const likeQuery = `%${q}%`;
 
-  const publicationFilter = localReview ? "" : "AND j.content_status = 'published'";
+  const publicationFilter = localReview ? "" : "AND j.content_status IN ('validated', 'published')";
   const where = `
     j.source_system = 'scr'
     AND j.source_citation_year = 2026
@@ -594,7 +616,7 @@ async function listJudgments(request, env) {
         j.slug, lower(substr(j.slug, -8)) AS public_id, j.decision_year, j.source_citation_year, j.title_source, j.scr_citation, j.neutral_citation,
         j.decision_date_iso, j.case_number_source, j.case_type,
         j.disposal_nature_source, j.bench_size_source, j.coram_source,
-        j.result_excerpt_source, j.content_status
+        j.result_excerpt_source, j.source_listing_url, j.content_status
       FROM judgments AS j
       WHERE ${where}
       ORDER BY j.decision_date_iso DESC, j.id DESC
@@ -605,7 +627,7 @@ async function listJudgments(request, env) {
     env.DB.prepare(`
       SELECT case_type, COUNT(*) AS records
       FROM judgments
-      WHERE source_system = 'scr' AND source_citation_year = 2026 ${localReview ? "" : "AND content_status = 'published'"} AND case_type IS NOT NULL
+      WHERE source_system = 'scr' AND source_citation_year = 2026 ${localReview ? "" : "AND content_status IN ('validated', 'published')"} AND case_type IS NOT NULL
       GROUP BY case_type
       ORDER BY records DESC, case_type
     `),
@@ -614,7 +636,7 @@ async function listJudgments(request, env) {
       FROM judges AS judge
       JOIN judgment_judges AS jj ON jj.judge_id = judge.id
       JOIN judgments AS j ON j.id = jj.judgment_id
-      WHERE j.source_system = 'scr' AND j.source_citation_year = 2026 ${localReview ? "" : "AND j.content_status = 'published'"}
+      WHERE j.source_system = 'scr' AND j.source_citation_year = 2026 ${localReview ? "" : "AND j.content_status IN ('validated', 'published')"}
       GROUP BY judge.id
       ORDER BY records DESC, judge.name_normalized
     `),
@@ -635,20 +657,35 @@ async function listJudgments(request, env) {
   const robots = localReview ? "noindex, nofollow" : activeFilters || total === 0 ? "noindex, follow" : "index, follow";
 
   const cards = records.map((record) => `
+    ${(() => {
+      const isPublicDetail = record.content_status === "published" || localReview;
+      const sourceHref = officialScrUrl(record.source_listing_url);
+      const href = isPublicDetail ? judgmentPath(record) : sourceHref;
+      const title = href
+        ? `<a href="${escapeHtml(href)}"${isPublicDetail ? "" : ' rel="external"'}>${escapeHtml(record.title_source)}</a>`
+        : escapeHtml(record.title_source);
+      const sourceAction = isPublicDetail
+        ? `<a class="read-link" href="${judgmentPath(record)}">View judgment record <span aria-hidden="true">→</span></a>`
+        : sourceHref
+          ? `<a class="read-link" href="${escapeHtml(sourceHref)}" rel="external">Open the SCR source record <span aria-hidden="true">↗</span></a>`
+          : `<p class="source-note">SCR listing metadata · Judgment page not yet published</p>`;
+      return `
     <article class="judgment-card">
       <div class="citation-line">
         <span>${escapeHtml(record.neutral_citation)}</span>
         <span>${escapeHtml(record.scr_citation)}</span>
       </div>
-      <h2><a href="${judgmentPath(record)}">${escapeHtml(record.title_source)}</a></h2>
+      <h2>${title}</h2>
       <dl class="card-facts">
         <div><dt>Decision</dt><dd><time datetime="${escapeHtml(record.decision_date_iso)}">${escapeHtml(formatDate(record.decision_date_iso))}</time></dd></div>
         <div><dt>Case</dt><dd>${escapeHtml(record.case_number_source)}</dd></div>
         <div><dt>Bench</dt><dd>${escapeHtml(record.bench_size_source || "Not stated")}</dd></div>
       </dl>
       ${record.result_excerpt_source ? `<p class="excerpt">${escapeHtml(record.result_excerpt_source)}</p>` : ""}
-      <a class="read-link" href="${judgmentPath(record)}">View judgment record <span aria-hidden="true">→</span></a>
+      ${sourceAction}
     </article>
+  `;
+    })()}
   `).join("");
 
   const caseTypeOptions = (caseTypesResult.results || []).map((item) => `
@@ -920,6 +957,7 @@ async function apiJudgments(request, env) {
   const where = `
     j.source_system = 'scr'
     AND j.source_citation_year = ?1
+    AND j.content_status IN ('validated', 'published')
     AND (?2 = '' OR j.title_source LIKE ?3 OR j.neutral_citation LIKE ?3 OR j.scr_citation LIKE ?3 OR j.case_number_source LIKE ?3)
     AND (?4 = '' OR j.case_type = ?4)
     AND (?5 = '' OR EXISTS (
@@ -1068,7 +1106,7 @@ async function apiJudgment(slug, env) {
     `).bind(slug),
   ]);
   const record = recordResult.results?.[0];
-  if (!record) return jsonResponse({ error: "Judgment not found" }, 404);
+  if (!record || record.content_status !== "published") return jsonResponse({ error: "Judgment not found" }, 404);
   const enrichment = enrichmentResult.results?.[0] || null;
   const caseRecord = enrichment?.source_case_identifier ? {
     source_case_identifier: enrichment.source_case_identifier,
@@ -1131,17 +1169,17 @@ async function apiJudgment(slug, env) {
 
 async function apiFilters(env) {
   const [yearsResult, caseTypesResult, judgesResult, benchSizesResult] = await env.DB.batch([
-    env.DB.prepare(`SELECT source_citation_year AS year, COUNT(*) AS records FROM judgments WHERE source_system = 'scr' GROUP BY source_citation_year ORDER BY year DESC`),
-    env.DB.prepare(`SELECT case_type AS value, COUNT(*) AS records FROM judgments WHERE source_system = 'scr' AND case_type IS NOT NULL GROUP BY case_type ORDER BY records DESC, value`),
+    env.DB.prepare(`SELECT source_citation_year AS year, COUNT(*) AS records FROM judgments WHERE source_system = 'scr' AND content_status IN ('validated', 'published') GROUP BY source_citation_year ORDER BY year DESC`),
+    env.DB.prepare(`SELECT case_type AS value, COUNT(*) AS records FROM judgments WHERE source_system = 'scr' AND content_status IN ('validated', 'published') AND case_type IS NOT NULL GROUP BY case_type ORDER BY records DESC, value`),
     env.DB.prepare(`
       SELECT judge.slug AS value, judge.name_source AS label, COUNT(*) AS records
       FROM judges AS judge
       JOIN judgment_judges AS jj ON jj.judge_id = judge.id
       JOIN judgments AS judgment ON judgment.id = jj.judgment_id
-      WHERE judgment.source_system = 'scr'
+      WHERE judgment.source_system = 'scr' AND judgment.content_status IN ('validated', 'published')
       GROUP BY judge.id ORDER BY records DESC, judge.name_normalized
     `),
-    env.DB.prepare(`SELECT bench_size AS value, bench_size_source AS label, COUNT(*) AS records FROM judgments WHERE source_system = 'scr' AND bench_size IS NOT NULL GROUP BY bench_size, bench_size_source ORDER BY bench_size`),
+    env.DB.prepare(`SELECT bench_size AS value, bench_size_source AS label, COUNT(*) AS records FROM judgments WHERE source_system = 'scr' AND content_status IN ('validated', 'published') AND bench_size IS NOT NULL GROUP BY bench_size, bench_size_source ORDER BY bench_size`),
   ]);
   return jsonResponse({
     data: {
@@ -1162,8 +1200,6 @@ async function sitemap(env) {
     ORDER BY id
   `).all();
   const published = result.results || [];
-  if (!published.length) return textResponse(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>`, "application/xml; charset=utf-8", "public, max-age=300, s-maxage=3600");
   const judgmentUrls = published.map((record) => `
   <url><loc>${SITE_ORIGIN}${judgmentPath(record)}</loc><lastmod>${escapeHtml(String(record.updated_at).slice(0, 10))}</lastmod></url>`).join("");
   return textResponse(`<?xml version="1.0" encoding="UTF-8"?>
