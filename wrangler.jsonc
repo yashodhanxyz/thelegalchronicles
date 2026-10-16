@@ -6,20 +6,7 @@
   "assets": {
     "directory": "./coming-soon",
     "binding": "ASSETS",
-    "run_worker_first": [
-      "/",
-      "/judgments",
-      "/judgments/*",
-      "/api/*",
-      "/judges/*",
-      "/articles",
-      "/articles/*",
-      "/authors/*",
-      "/editorial-policy",
-      "/corrections",
-      "/robots.txt",
-      "/sitemap.xml"
-    ]
+    "run_worker_first": true
   },
   "d1_databases": [
     {
