@@ -171,8 +171,8 @@ test("a missing judgment returns an accessible noindex page", async () => {
   const html = await response.text();
 
   assert.equal(response.status, 404);
-  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
-  assert.match(html, /<h1>Judgment not found\.<\/h1>/);
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, follow");
+  assert.match(html, /<h1>We couldn’t find this page\.<\/h1>/);
   assert.match(html, /href="\/judgments\/supreme-court\/2026"/);
   assert.doesNotMatch(html, /class="eyebrow"/);
 });
@@ -301,20 +301,14 @@ test("unpublished judgment details return 404 on public hosts", async () => {
   );
 
   assert.equal(response.status, 404);
-  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
+  assert.equal(response.headers.get("x-robots-tag"), "noindex, follow");
 });
 
-test("legacy Split View URLs redirect to the canonical judgment", async () => {
-  const response = await worker.fetch(
-    new Request("https://thelegalchronicles.com/judgments/mageba-pilot/split"),
-    assetsResponse(),
-  );
-
-  assert.equal(response.status, 308);
-  assert.equal(
-    response.headers.get("location"),
-    "https://thelegalchronicles.com/judgments/mageba-pilot",
-  );
+test("legacy Split View URLs redirect directly to the verified published judgment", async () => {
+  const env = {DB: databaseBatch([{results:[{slug:'mageba-2026-insc-839-92c69e3b',public_id:'92c69e3b',decision_year:2026,content_status:'published'}]},{results:[]},{results:[]}])};
+  const response = await worker.fetch(new Request('https://thelegalchronicles.com/judgments/mageba-2026-insc-839-92c69e3b/split'), env);
+  assert.equal(response.status,308);
+  assert.equal(response.headers.get('location'),'https://thelegalchronicles.com/judgments/supreme-court/2026/mageba-92c69e3b');
 });
 
 test("validated R2 judgment text is server rendered and remains noindex before publication", async () => {

@@ -64,7 +64,7 @@ test('source-incomplete and currentness-unresolved article paths fail closed',as
  for(const path of heldPaths){
   const response=await worker.fetch(new Request(`https://thelegalchronicles.com${path}`),{});
   assert.equal(response.status,404);
-  assert.equal(response.headers.get('x-robots-tag'),'noindex, nofollow');
+  assert.equal(response.headers.get('x-robots-tag'),'noindex, follow');
  }
 });
 

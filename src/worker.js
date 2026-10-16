@@ -161,6 +161,24 @@ function pageShell({ title, description, canonical, robots = "index, follow", cu
 </html>`;
 }
 
+function notFoundPage(url) {
+  const content = `<main id="main" tabindex="-1" class="message-page not-found-page">
+    <p class="publication-eyebrow">404 · Page not found</p>
+    <h1>We couldn’t find this page.</h1>
+    <p>The address may be incorrect, or the page may have moved or been removed.</p>
+    <section aria-labelledby="not-found-search-heading">
+      <h2 id="not-found-search-heading">Find a judgment</h2>
+      <form action="${COURT_CATALOG}" method="get" role="search" aria-label="Find a judgment">
+        <label for="not-found-search">Search judgments</label>
+        <p id="not-found-search-help">Enter a case name, citation or case number.</p>
+        <div class="not-found-search-controls"><input id="not-found-search" name="q" type="search" aria-describedby="not-found-search-help" autocomplete="off"><button type="submit">Search judgments</button></div>
+      </form>
+    </section>
+    <nav aria-label="Find your way"><ul><li><a href="${COURT_CATALOG}">Browse Supreme Court judgments from 2026</a></li><li><a href="/">Go to the homepage</a></li></ul></nav>
+  </main>`;
+  return htmlResponse(pageShell({title:`Page not found | ${SITE_NAME}`,description:'Find a judgment or return to The Legal Chronicles homepage.',canonical:SITE_ORIGIN + url.pathname,robots:'noindex, follow',content}).replace('</head>', '<link rel="stylesheet" href="/not-found.css?v=20261016"></head>'),404,'noindex, follow');
+}
+
 function formatDate(value) {
   if (!value) return "Date unavailable";
   const [year, month, day] = value.split("-");
@@ -1329,7 +1347,7 @@ export default {
         response = Response.redirect(new URL(COURT_CATALOG + url.search,request.url).href,308);
       } else if (readable && /^\/judgments\/[^/]+\/split$/.test(url.pathname)) {
         const slug = decodeURIComponent(url.pathname.slice("/judgments/".length, -"/split".length));
-        response = Response.redirect(`${SITE_ORIGIN}/judgments/${encodeURIComponent(slug)}`, 308);
+        response = await judgmentDetail(slug, env, request);
       } else if (readable && /^\/judgments\/[^/]+$/.test(url.pathname)) {
         response = await judgmentDetail(decodeURIComponent(url.pathname.slice('/judgments/'.length)),env,request);
       } else if (readable && url.pathname === "/api/v1/judgments") {
@@ -1349,12 +1367,21 @@ export default {
       } else {
         response = await env.ASSETS.fetch(request);
       }
-      if (isLocalArticleReview(request) && response.headers.get('content-type')?.includes('text/html')) {
+      // Keep API and missing file responses separate from the HTML recovery page.
+      if (readable && response.status === 404 && !url.pathname.startsWith('/api/')
+          && (!/\.[a-z0-9]+$/i.test(url.pathname) || /\.html?$/i.test(url.pathname) || request.headers.get('accept')?.includes('text/html'))) {
+        response = notFoundPage(url);
+      }
+      if (response.status !== 404 && isLocalArticleReview(request) && response.headers.get('content-type')?.includes('text/html')) {
         const html = (await response.text()).replace('About the publication</a></nav>', 'About the publication</a><a href="/editorial-policy">Editorial policy</a><a href="/corrections">Corrections</a></nav>').replaceAll('<a href="/judges/supreme-court">Judges</a>', '<a href="/articles">Articles</a><a href="/judges/supreme-court">Judges</a>');
         response = new Response(html, {status:response.status,headers:response.headers});
       }
       return request.method === "HEAD" ? bodyless(response) : response;
     } catch (error) {
+      if (error instanceof URIError && ["GET", "HEAD"].includes(request.method) && !url.pathname.startsWith("/api/")) {
+        const response = notFoundPage(url);
+        return request.method === "HEAD" ? bodyless(response) : response;
+      }
       const response = url.pathname.startsWith("/api/")
         ? jsonResponse({ error: "Catalog temporarily unavailable" }, 503)
         : errorPage(error, url.pathname);

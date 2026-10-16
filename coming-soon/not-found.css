@@ -1,0 +1,14 @@
+.not-found-page { max-width: 48rem; overflow-wrap: anywhere; }
+.not-found-page h1 { font-size: clamp(2rem, 7vw, 3.5rem); line-height: 1.15; }
+.not-found-page > p { max-width: 42rem; line-height: 1.65; }
+.not-found-page section { margin-block: 2.5rem; }
+.not-found-page h2 { font-size: 1.4rem; }
+.not-found-page label { display: block; font-weight: 700; }
+.not-found-page form p { margin-block: .5rem 1rem; }
+.not-found-search-controls { display: flex; flex-wrap: wrap; gap: .75rem; }
+.not-found-search-controls input { flex: 1 1 16rem; min-width: 0; width: 100%; padding: .8rem; border: 1px solid currentColor; background: var(--paper); color: var(--ink); font: inherit; }
+.not-found-search-controls button { min-height: 44px; padding: .8rem 1rem; border: 1px solid currentColor; background: var(--ink); color: var(--paper); font: inherit; cursor: pointer; }
+.not-found-page nav ul { padding: 0; list-style: none; }
+.not-found-page nav a { display: inline-block; padding-block: .75rem; text-underline-offset: .2em; }
+.not-found-page :is(input, button, a):focus-visible { outline: 3px solid currentColor; outline-offset: 4px; }
+@media (forced-colors: active) { .not-found-search-controls button { background: ButtonFace; color: ButtonText; border-color: ButtonText; } .not-found-page :focus-visible { outline-color: Highlight; } }

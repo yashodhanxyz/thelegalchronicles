@@ -23,3 +23,11 @@ npm run check
 The production Worker reads the `the-legal-chronicles` D1 database. Take a remote D1 export before changing content status. Do not publish a judgment unless its identity and full source body reconcile; do not publish an explainer with unresolved source fidelity or material currentness issues.
 
 Release code through a GitHub pull request to `main`, wait for CI, then deploy the merged Worker. Verify the public homepage, an article and its judgment link, a judgment detail, withheld records, robots, sitemap, and APIs after deployment. Database status changes are a separate release step.
+
+### Missing pages and legacy judgment addresses
+
+Missing HTML pages return a server-rendered HTTP 404 with a labelled GET search form, a link to the 2026 Supreme Court catalog and a homepage link. The page is `noindex, follow`; it is not added to the sitemap. Missing API/file responses and upstream failures retain their existing behavior. The Worker runs before static assets so unknown page paths reach this recovery handler.
+
+Legacy `/judgments/{stored-slug}` and `/judgments/{stored-slug}/split` addresses resolve through the exact database slug and permanent judgment ID. On public hosts, only published records redirect (308) to the canonical judgment URL. Unknown and withheld records remain 404. Historical `/courts/...` paths must have their document identity verified before an explicit alias is added; similar titles or a court mismatch are not sufficient evidence. No blanket homepage redirect is used.
+
+Local verification evidence for this change is under `outputs/404-review/`. This is not a production release or complete WCAG certification.
