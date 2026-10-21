@@ -139,15 +139,15 @@ node scripts/verify-scr-recovery.mjs /private/tmp/new-recovery-fixture.sqlite
 The fixture builder opens its source database read-only and refuses an existing
 output or an output outside `/private/tmp/`. The prior release simulation must
 contain the 930 published baseline records; the new 71 stay `validated` in the
-disposable fixture and return public 404s. Current production still contains
-930 published 2025 records; all 134 withheld identities remain public 404s.
+disposable fixture and return public 404s. At the earlier private-review checkpoint, production contained
+930 published 2025 records and all 134 withheld identities returned public 404s.
 Remote byte verification and full release review are still required before
-publication. Native screen-reader and actual browser-zoom checks have not been
-performed for this recovery. Evidence URLs must be rechecked before release;
+publication. At that checkpoint, native screen-reader and actual browser-zoom checks had
+not been performed. Evidence URLs must be rechecked before release;
 one retained SCR PDF was served through a temporary official download URL.
 
 
-### Recovered-judgment release gate (21 October 2026)
+### Recovered judgments published (21 October 2026)
 
 The 71 private recovery candidates were rechecked for release. **70 pass the
 source/evidence gate; 64 remain withheld overall.** The original 63 holds remain.
@@ -164,8 +164,12 @@ status. Its disposable SQLite rehearsal reached 1,000 published 2025 records,
 with all other existing judgment rows unchanged and foreign keys valid.
 Production reconciliation verified all 140 object bytes, metadata and judge
 relationships with foreign keys valid; all pre-existing rows and relationships
-are unchanged. A fresh D1 Time Travel bookmark was recorded. The 70 records are
-validated and unpublished pending deployment and live release verification. Never execute the earlier
+are unchanged. A fresh D1 Time Travel bookmark was recorded. The reader change was merged in PR #10 and deployed successfully. All 70
+were then published through the exact-hash allowlist. Live checks verify
+**1,000 published 2025 judgments**, all 70 reader texts, 2,653 fragment targets,
+API/sitemap counts and all 64 withheld public 404s. The 277 published 2026
+judgments remain unchanged. All 70 live readers pass 320px reflow without
+JavaScript; the three live correction readers have zero axe violations. Never execute the earlier
 930-record release scripts for this recovery batch.
 
 Native Chrome keyboard search, both filter selections, result navigation,
@@ -177,4 +181,7 @@ no mobile tester is available. The user explicitly approved desktop and mobile
 screen-reader exceptions for this recovery release; these checks remain
 **untested**, not passed. The existing skipped private-fixture test is unchanged
 (94 tests passed, one skipped); `npm run check`, pilot and inventory validation
-passed. Publication results will be recorded after live verification.
+passed. Temporary D1 access was revoked and its isolated credential directory removed.
+Aggregate evidence is in `audits/2026-10-21-2025-expansion/recovery-release.json`.
+The optional Cloudflare analytics beacon remains blocked by the unchanged CSP;
+this pre-existing console error does not prevent judgment reading.
