@@ -4,9 +4,9 @@ The Legal Chronicles is a judgment-first legal publication. Its Cloudflare Worke
 
 ## Release contents and boundaries
 
-The public release contains 277 verified 2026 judgment records, 17 AI-assisted explainers, and 38 official-source judge biographies. Explainers have not undergone independent human legal review; each article says so and links to its source judgment. They are general information, not legal advice.
+The public release contains 930 verified 2025 judgment records and 277 verified 2026 judgment records, 17 AI-assisted explainers, and 38 official-source judge biographies. Explainers have not undergone independent human legal review; each article says so and links to its source judgment. They are general information, not legal advice.
 
-Two judgment records remain withheld: 2026 INSC 847 because the accessible capture omits a separate concurrence, and 2026 INSC 652 because the source identity is unresolved. Three explainers remain withheld because their source or currentness checks are incomplete. Published pages, APIs, judge counts, and the sitemap include only records marked `published`.
+A further 134 collected 2025 identities remain withheld: 70 failed captures, 59 without captured HTML, four unresolved judge-name conflicts and one decision-date conflict. Two 2026 judgment records remain withheld: 2026 INSC 847 because the accessible capture omits a separate concurrence, and 2026 INSC 652 because the source identity is unresolved. Three explainers remain withheld because their source or currentness checks are incomplete. Published pages, APIs, judge counts, and the sitemap include only records marked `published`.
 
 ## Local checks
 
@@ -33,12 +33,12 @@ Legacy `/judgments/{stored-slug}` and `/judgments/{stored-slug}/split` addresses
 Local verification evidence for this change is under `outputs/404-review/`. This is not a production release or complete WCAG certification.
 
 
-## 2025 expansion (reviewed release prepared, 21 October 2026)
+## 2025 expansion (published and verified, 21 October 2026)
 
 The initial 2025 text-transform pass contained 935 documents. Original-source
 review leaves **930 publication candidates and 134 withheld records** from the
 1,064-identity collected inventory. Complete annual court coverage is not
-asserted. The reviewed import remains unpublished until remote byte and relationship reconciliation passes; production publication is a separate guarded step.
+asserted. All 930 accepted records are now published. Remote reconciliation verified all 1,860 source/render objects byte for byte, exact per-record hashes and reviewed judge relationships; existing 2026 records and relationships remained unchanged. Live checks verified all 930 readers against source-derived text, all 25,288 fragment links, all 134 withheld 404s, and exact API/sitemap counts. One initial network fetch failure passed a targeted recheck.
 
 The withheld set contains 70 failed captures, 59 records without captured HTML,
 four unresolved judge-name spelling conflicts, and one conflicting decision
@@ -99,7 +99,7 @@ footnotes are preserved by text equality and source/render hash reconciliation.
 Local evidence is in `audits/2026-10-21-2025-expansion/RELEASE-REVIEW.html` and
 private JSON files beside it. Native 200% browser zoom and desktop/mobile screen
 readers remain unverified; native VoiceOver control was denied and no mobile
-tester is available. On 21 October 2026 the user explicitly approved release exceptions for those checks and the complete native filter-keyboard flow. These checks are untested, not passed. The user also approved the temporary D1-only sign-in with the refresh access required by Wrangler; the isolated credential is removed after release.
+tester is available. On 21 October 2026 the user explicitly approved release exceptions for those checks and the complete native filter-keyboard flow. These checks are untested, not passed. The user also approved the temporary D1-only sign-in with the refresh access required by Wrangler; the isolated credential was revoked and removed after release.
 The legacy D1 validator still assumes a single-year metadata-only catalog;
 its old 36-judge expectation already failed against the 38-judge database before
 this expansion. It is not reported as passing. The scoped local byte, identity,
