@@ -20,7 +20,7 @@ npm run check
 
 ## Production release
 
-The production Worker reads the `the-legal-chronicles` D1 database. Take a remote D1 export before changing content status. Do not publish a judgment unless its identity and full source body reconcile; do not publish an explainer with unresolved source fidelity or material currentness issues.
+The production Worker reads the `the-legal-chronicles` D1 database. Record a D1 Time Travel recovery bookmark before changing content status. A full remote export requires separate approval when it includes unpublished data. Do not publish a judgment unless its identity and full source body reconcile; do not publish an explainer with unresolved source fidelity or material currentness issues.
 
 Release code through a GitHub pull request to `main`, wait for CI, then deploy the merged Worker. Verify the public homepage, an article and its judgment link, a judgment detail, withheld records, robots, sitemap, and APIs after deployment. Database status changes are a separate release step.
 
@@ -38,7 +38,7 @@ Local verification evidence for this change is under `outputs/404-review/`. This
 The initial 2025 text-transform pass contained 935 documents. Original-source
 review leaves **930 publication candidates and 134 withheld records** from the
 1,064-identity collected inventory. Complete annual court coverage is not
-asserted. No 2025 production import, deployment or publication has occurred.
+asserted. The reviewed import remains unpublished until remote byte and relationship reconciliation passes; production publication is a separate guarded step.
 
 The withheld set contains 70 failed captures, 59 records without captured HTML,
 four unresolved judge-name spelling conflicts, and one conflicting decision
@@ -99,7 +99,7 @@ footnotes are preserved by text equality and source/render hash reconciliation.
 Local evidence is in `audits/2026-10-21-2025-expansion/RELEASE-REVIEW.html` and
 private JSON files beside it. Native 200% browser zoom and desktop/mobile screen
 readers remain unverified; native VoiceOver control was denied and no mobile
-tester is available. A scoped D1-only production sign-in also needs approval: Wrangler automatically requests offline refresh access, even when that scope is omitted. The attempt was stopped before authorization.
+tester is available. On 21 October 2026 the user explicitly approved release exceptions for those checks and the complete native filter-keyboard flow. These checks are untested, not passed. The user also approved the temporary D1-only sign-in with the refresh access required by Wrangler; the isolated credential is removed after release.
 The legacy D1 validator still assumes a single-year metadata-only catalog;
 its old 36-judge expectation already failed against the 38-judge database before
 this expansion. It is not reported as passing. The scoped local byte, identity,
