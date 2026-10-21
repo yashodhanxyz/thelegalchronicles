@@ -1,0 +1,39 @@
+{
+  "verified_at": "2026-10-21T12:10:29.276Z",
+  "status": "published",
+  "newly_published": 70,
+  "published_2025_total": 1000,
+  "published_2026_unchanged": 277,
+  "withheld_total": 64,
+  "original_63_withheld_unchanged": true,
+  "additional_hold": "Pride Foramer: temporary official verification-PDF URL returns HTTP 404; durable official replacement required",
+  "production_objects_byte_verified": 140,
+  "metadata_and_judge_relationships_reconciled": 70,
+  "existing_rows_and_relationships_unchanged": true,
+  "foreign_keys": "pass",
+  "live_readers_checked": 70,
+  "live_fragment_targets_verified": 2653,
+  "withheld_public_404s": 64,
+  "api_and_sitemaps": "pass",
+  "mobile_320px_without_javascript": {
+    "checked": 70,
+    "failures": 0
+  },
+  "targeted_axe_scans": {
+    "checked": 3,
+    "violations": 0
+  },
+  "native_chrome_keyboard": "search, case-type and judge selection, result, reading jump, footnote and return passed",
+  "native_chrome_200_percent_zoom": "archive and judgment reading checked",
+  "desktop_screen_reader": "untested: VoiceOver access timed out; explicit user release exception",
+  "mobile_screen_reader": "untested: no tester available; explicit user release exception",
+  "repository_tests": {
+    "pass": 94,
+    "skip": 1,
+    "fail": 0
+  },
+  "build_pilot_inventory": "pass",
+  "temporary_d1_access": "revoked and isolated credential folder removed",
+  "source_boundary": "Preserved captured SCR English HTML; official PDFs corroborate specific metadata only",
+  "preexisting_console_limit": "Cloudflare analytics beacon blocked by unchanged restrictive CSP; reader checks pass"
+}
