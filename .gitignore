@@ -7,3 +7,12 @@ data/scr-body-corpus/
 data/scr-body-corpus-*.json
 data/scr-body-corpus-*.sql
 .local-editorial/
+
+# Private local data and dependencies can be reused through worktree symlinks.
+/node_modules
+/.wrangler
+/data/scr-body-corpus
+/data/scr-inventory-2026.ndjson
+
+# Source review evidence stays private; the summary HTML contains no raw captures.
+/audits/2026-10-21-2025-expansion/*.json

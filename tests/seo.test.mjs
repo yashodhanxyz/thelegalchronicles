@@ -59,13 +59,14 @@ test('public author, policy, and corrections pages are indexable and describe th
  }
 });
 
-test('sitemap contains only canonical public pages and published judgment details',async()=>{
+test('segmented sitemap contains only canonical public pages and published judgment details',async()=>{
  const queries=[];
- const env={DB:{prepare(sql){queries.push(sql);return {all:async()=>({results:[{slug:'recent-case-a1b2c3d4',public_id:'a1b2c3d4',decision_year:2026,source_citation_year:2026,updated_at:'2026-10-14'}]})};}}};
- const response=await worker.fetch(new Request('https://thelegalchronicles.com/sitemap.xml'),env);
- const xml=await response.text();
+ const env={DB:{prepare(sql){queries.push(sql);return {bind(){return this;},all:async()=>({results:[{slug:'recent-case-a1b2c3d4',public_id:'a1b2c3d4',decision_year:2026,source_citation_year:2026,updated_at:'2026-10-14'}]})};}}};
+ const index=await worker.fetch(new Request('https://thelegalchronicles.com/sitemap.xml'),env);
+ assert.match(await index.text(),/<sitemapindex/);
+ const sections=['pages','articles','judges','judgments-2026'];
+ let xml='';for(const section of sections){const r=await worker.fetch(new Request(`https://thelegalchronicles.com/sitemaps/${section}.xml`),env);assert.equal(r.headers.get('content-type'),'application/xml; charset=utf-8');xml+=await r.text();}
  assert.ok(queries.some(query=>query.includes("content_status = 'published'")));
- assert.equal(response.headers.get('content-type'),'application/xml; charset=utf-8');
  for(const path of ['/','/articles','/editorial-policy','/corrections','/authors/yashodhan-deshmukh','/judges/supreme-court','/judgments/supreme-court/2026/recent-case-a1b2c3d4'])assert.ok(xml.includes(`<loc>https://thelegalchronicles.com${path}</loc>`));
  for(const article of articleDrafts)assert.ok(xml.includes(`<loc>https://thelegalchronicles.com${article.proposed_article_path}</loc>`));
  assert.ok(xml.includes('<lastmod>2026-10-14</lastmod>'));

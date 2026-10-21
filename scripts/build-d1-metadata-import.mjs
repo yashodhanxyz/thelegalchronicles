@@ -8,9 +8,17 @@ const [inputArg = "data/scr-inventory-2026.ndjson", outputArg = "data/scr-2026-i
 const inputPath = resolve(inputArg);
 const outputPath = resolve(outputArg);
 const sourceListingUrl = "https://scr.sci.gov.in/scrsearch/?p=pdf_search/home";
-const sourceObservedOn = "2026-09-17";
-const snapshotNote =
-  "Verified citation-year 2026 volume-filtered inventory; positions are canonical local positions, not global SCR positions.";
+const citationYear = Number(process.argv[4] || 2026);
+const expectedCount = Number(process.argv[5] || 279);
+const sourceObservedOn = process.argv[6] || "2026-09-17";
+assert.ok([2025, 2026].includes(citationYear));
+assert.ok(Number.isInteger(expectedCount) && expectedCount > 0);
+assert.match(sourceObservedOn, /^\d{4}-\d{2}-\d{2}$/);
+const observedTotal = Number(process.argv[7] || (citationYear === 2026 ? 38598 : expectedCount));
+assert.ok(Number.isInteger(observedTotal) && observedTotal >= expectedCount);
+const snapshotNote = citationYear === 2026
+  ? "Verified citation-year 2026 volume-filtered inventory; positions are canonical local positions, not global SCR positions."
+  : `Citation-year ${citationYear} staged inventory; positions are canonical local positions, not global SCR positions. Annual completeness is not asserted.`;
 
 const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
 const sql = (value) => value === null || value === undefined
@@ -74,17 +82,18 @@ const records = (await readFile(inputPath, "utf8"))
     }
   });
 
-assert.equal(records.length, 279, "Expected the verified 279-record 2026 inventory");
+assert.equal(records.length, expectedCount, "Inventory count differs from explicit expected count");
 
 const sourceKeys = new Set();
 const slugs = new Set();
+const publicIds = new Set();
 const statements = [
   "PRAGMA foreign_keys = ON;",
 ];
 
 for (const [index, record] of records.entries()) {
   assert.equal(record.position, index + 1, "Inventory positions must be contiguous");
-  assert.equal(record.source_lookup?.citation_year, 2026);
+  assert.equal(record.source_lookup?.citation_year, citationYear);
   assert.ok(record.source_lookup.path && record.source_lookup.neutral_key);
   assert.ok(record.title_source && record.scr_citation && record.neutral_citation);
 
@@ -97,6 +106,8 @@ for (const [index, record] of records.entries()) {
   sourceKeys.add(sourceKey);
 
   const suffix = createHash("sha256").update(sourceKey).digest("hex").slice(0, 8);
+  assert.ok(!publicIds.has(suffix), `Permanent ID collision: ${suffix}; resolve before importing`);
+  publicIds.add(suffix);
   const titleSlug = slugify(record.title_source).slice(0, 72).replace(/-+$/g, "");
   const citationSlug = slugify(record.neutral_citation);
   const slug = `${titleSlug}-${citationSlug}-${suffix}`;
@@ -105,22 +116,33 @@ for (const [index, record] of records.entries()) {
 
   const decisionDateIso = parseDate(record.decision_date_source);
   const caseType = parseCaseType(record.case_number_source);
-  const benchSize = Number.parseInt(record.bench_size_source, 10);
-  const judges = parseJudges(record.coram_source);
+  const verified = record.verified_judges;
+  if (verified) {
+    assert.equal(citationYear, 2025, 'Reviewed metadata is scoped to the 2025 release');
+    assert.ok(Array.isArray(verified) && verified.length > 0);
+    for (const [index, judge] of verified.entries()) {
+      assert.equal(judge.source_position, index + 1);
+      assert.equal(typeof judge.name_source, "string");
+      assert.equal(parseJudges(judge.name_source).length, 1);
+      assert.ok(judge.is_author === 1 || judge.is_author === null);
+    }
+  }
+  const judges = verified ? verified.map(judge => ({...parseJudges(judge.name_source)[0], sourcePosition: judge.source_position, isAuthor: judge.is_author})) : parseJudges(record.coram_source);
+  const benchSize = verified ? judges.length : Number.parseInt(record.bench_size_source, 10);
 
   statements.push(`
 INSERT INTO judgments (
   source_system, source_citation_year, source_path, source_neutral_key,
-  source_listing_url, slug, title_source, scr_citation, neutral_citation,
+  source_listing_url, slug, public_id, title_source, scr_citation, neutral_citation,
   decision_date_source, decision_date_iso, decision_year,
   case_number_source, case_type, disposal_nature_source,
   bench_size_source, bench_size, coram_source, result_excerpt_source,
   content_status, source_collected_at, source_checked_at
 ) VALUES (
-  'scr', 2026, ${sql(record.source_lookup.path)}, ${sql(record.source_lookup.neutral_key)},
-  ${sql(sourceListingUrl)}, ${sql(slug)}, ${sql(record.title_source)},
+  'scr', ${citationYear}, ${sql(record.source_lookup.path)}, ${sql(record.source_lookup.neutral_key)},
+  ${sql(sourceListingUrl)}, ${sql(slug)}, ${sql(suffix)}, ${sql(record.title_source)},
   ${sql(record.scr_citation)}, ${sql(record.neutral_citation)},
-  ${sql(record.decision_date_source)}, ${sql(decisionDateIso)}, 2026,
+  ${sql(record.decision_date_source)}, ${sql(decisionDateIso)}, ${Number(decisionDateIso.slice(0,4))},
   ${sql(record.case_number_source)}, ${sql(caseType)}, ${sql(record.disposal_nature_source || null)},
   ${sql(record.bench_size_source)}, ${integer(benchSize)}, ${sql(record.coram_source || null)},
   ${sql(record.result_excerpt_source)}, 'metadata_only', ${sql(sourceObservedOn)}, ${sql(sourceObservedOn)}
@@ -156,7 +178,7 @@ INSERT INTO judgment_source_assets (judgment_id, asset_kind, action_status)
 SELECT id, ${sql(assetKind)}, ${sql(listed ? "listed" : "not_listed")}
 FROM judgments
 WHERE source_system = 'scr'
-  AND source_citation_year = 2026
+  AND source_citation_year = ${citationYear}
   AND source_path = ${sql(record.source_lookup.path)}
   AND source_neutral_key = ${sql(record.source_lookup.neutral_key)}
 ON CONFLICT (judgment_id, asset_kind)
@@ -168,7 +190,7 @@ DELETE FROM judgment_judges
 WHERE judgment_id = (
   SELECT id FROM judgments
   WHERE source_system = 'scr'
-    AND source_citation_year = 2026
+    AND source_citation_year = ${citationYear}
     AND source_path = ${sql(record.source_lookup.path)}
     AND source_neutral_key = ${sql(record.source_lookup.neutral_key)}
 );`);
@@ -184,7 +206,7 @@ SELECT judgment.id, judge.id, ${judge.sourcePosition}, ${integer(judge.isAuthor)
 FROM judgments AS judgment
 JOIN judges AS judge ON judge.name_normalized = ${sql(judge.nameNormalized)}
 WHERE judgment.source_system = 'scr'
-  AND judgment.source_citation_year = 2026
+  AND judgment.source_citation_year = ${citationYear}
   AND judgment.source_path = ${sql(record.source_lookup.path)}
   AND judgment.source_neutral_key = ${sql(record.source_lookup.neutral_key)};`);
   }
@@ -200,12 +222,12 @@ INSERT INTO ingestion_runs (
   records_seen, records_written, records_rejected, started_at, finished_at
 )
 SELECT
-  'scr', 2026, 'completed', ${sql(JSON.stringify({ dataset_sha256: datasetHash }))},
-  279, 279, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+  'scr', ${citationYear}, 'completed', ${sql(JSON.stringify({ dataset_sha256: datasetHash }))},
+  ${records.length}, ${records.length}, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 WHERE NOT EXISTS (
   SELECT 1 FROM ingestion_runs
   WHERE source_system = 'scr'
-    AND citation_year = 2026
+    AND citation_year = ${citationYear}
     AND cursor_json = ${sql(JSON.stringify({ dataset_sha256: datasetHash }))}
 );
 
@@ -214,13 +236,13 @@ INSERT INTO source_inventory_snapshots (
   first_source_position, last_source_position, captured_at, notes
 )
 SELECT
-  'scr', 38598, 279, 1, 279, ${sql(sourceObservedOn)},
+  'scr', ${observedTotal}, ${records.length}, 1, ${records.length}, ${sql(sourceObservedOn)},
   ${sql(snapshotNote)}
 WHERE NOT EXISTS (
   SELECT 1 FROM source_inventory_snapshots
   WHERE source_system = 'scr'
     AND captured_at = ${sql(sourceObservedOn)}
-    AND captured_records = 279
+    AND captured_records = ${records.length}
     AND notes = ${sql(snapshotNote)}
 );`);
 
