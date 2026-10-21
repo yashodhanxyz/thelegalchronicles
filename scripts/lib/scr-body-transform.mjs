@@ -150,10 +150,18 @@ export function transformScrDocument({
   sourceNeutralKey,
   capturedAt,
   documentHtml,
+  recoverLegacyFootnotes = false,
 }) {
   assert.match(documentHtml, /id=["']_idContainer\d+["']/u, `${id} has no SCR document root`);
   assert.ok(!documentHtml.includes("�"), `${id} contains a Unicode replacement character`);
 
+  const localFootnoteFragment = href => {
+    assert.equal(typeof href, 'string', `${id} has a missing footnote href`);
+    assert.match(href, /^(?:[^/#:]+\.html)?#[A-Za-z0-9_-]+$/u, `${id} has a nonlocal footnote href`);
+    const [file, fragment] = href.split('#');
+    if (file) assert.equal((file.match(/\d+/gu) || []).join('_'), sourcePath, `${id} footnote points to another source document`);
+    return fragment;
+  };
   const elementPattern = /<(p|h[1-6])\b([^>]*)>([\s\S]*?)<\/\1>|<hr\b([^>]*)\/?\s*>/giu;
   const blocks = [];
   let match;
@@ -177,8 +185,10 @@ export function transformScrDocument({
     let referenceMatch;
     while ((referenceMatch = referencePattern.exec(innerHtml))) {
       const number = visibleText(referenceMatch[2]);
-      const targetId = parseAttribute(referenceMatch[1], "href")?.replace(/^#/u, "");
-      const backlinkId = parseAttribute(referenceMatch[1], "id");
+      const href = parseAttribute(referenceMatch[1], "href");
+      const targetId = recoverLegacyFootnotes ? localFootnoteFragment(href) : href?.replace(/^#/u, "");
+      const backlinkId = parseAttribute(referenceMatch[1], "id")
+        || (recoverLegacyFootnotes && targetId ? `${targetId}-backlink` : null);
       // Preserve a collapsed trailing space before the reference. Trimming the
       // prefix alone shifts references following whitespace one character left.
       const offset = visibleText(`${innerHtml.slice(0, referenceMatch.index)}X`).length - 1;
@@ -193,7 +203,8 @@ export function transformScrDocument({
     );
     if (footnoteAnchor) {
       const number = visibleText(footnoteAnchor[2]);
-      const backlinkId = parseAttribute(footnoteAnchor[1], "href")?.replace(/^#/u, "");
+      const href = parseAttribute(footnoteAnchor[1], "href");
+      const backlinkId = recoverLegacyFootnotes ? localFootnoteFragment(href) : href?.replace(/^#/u, "");
       const footnoteId = backlinkId?.replace(/-backlink$/u, "");
       assert.ok(footnoteId && backlinkId, `${id} has an incomplete footnote`);
       assert.ok(text.startsWith(number), `${id} footnote number mismatch`);
@@ -229,6 +240,17 @@ export function transformScrDocument({
   const footnoteIds = new Set(blocks.flatMap((block) => block.footnote ? [block.footnote.id] : []));
   for (const targetId of referenceTargets) {
     assert.ok(footnoteIds.has(targetId), `${id} footnote target ${targetId} is missing`);
+  }
+
+  if (recoverLegacyFootnotes) {
+    const references = blocks.flatMap(block => block.footnoteReferences || []);
+    const notes = blocks.flatMap(block => block.footnote ? [block.footnote] : []);
+    assert.equal(new Set(references.map(ref => ref.backlinkId)).size, references.length, `${id} has ambiguous footnote backlinks`);
+    assert.equal(new Set(notes.map(note => note.id)).size, notes.length, `${id} has ambiguous footnote targets`);
+    for (const ref of references) {
+      const note = notes.find(note => note.id === ref.targetId);
+      assert.ok(note && note.number === ref.number, `${id} has mismatched footnote numbering`);
+    }
   }
 
   const renderDocument = {

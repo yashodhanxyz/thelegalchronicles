@@ -890,6 +890,7 @@ h1 {
 }
 
 .judgment-reading {
+  overflow-wrap: anywhere;
   max-width: 48rem;
   font-family: Georgia, "Times New Roman", serif;
 }

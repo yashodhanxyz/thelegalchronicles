@@ -104,3 +104,44 @@ The legacy D1 validator still assumes a single-year metadata-only catalog;
 its old 36-judge expectation already failed against the 38-judge database before
 this expansion. It is not reported as passing. The scoped local byte, identity,
 relationship, source-section and whole-reader checks provide separate evidence.
+
+## Withheld 2025 recovery (private review, 21 October 2026)
+
+All 134 withheld records were reviewed. **71 unpublished candidates** now pass
+local source, required-section, judge-relationship and reader checks: 64 footnote
+navigation recoveries, four documented judge-spelling reconciliations, two
+neutral-citation corrections and one decision-date correction. Original legal
+text and raw listing captures are unchanged. Four corrections are corroborated
+by retained official PDFs; their previews identify the original and verified
+metadata separately and link to the evidence.
+
+**63 remain blocked:** 59 without English HTML in the current SCR listing,
+three unresolved citation mismatches and one source that comments out a
+referenced footnote. Never supply the missing footnote or replace the legal text
+with an inferred value. The current 2025 listing was checked after a human
+completed its CAPTCHA. Later within-results searching returned an upstream
+server error; no access control was bypassed.
+
+The recovery is isolated under `data/scr-body-corpus/2025/recovery-reviewed/`.
+It generates no publication allowlist and performs no production import.
+`review-withheld-2025.mjs` accepts only explicitly reviewed PDF evidence whose
+bytes match the recorded hash. Without the private correction-evidence file,
+those four cases remain withheld. The default parser and all 930 released
+render hashes remain unchanged.
+
+```sh
+node scripts/review-withheld-2025.mjs /absolute/path/to/scr-inventory-complete-38598.ndjson
+node scripts/build-d1-metadata-import.mjs data/scr-body-corpus/2025/recovery-reviewed/inventory.ndjson data/scr-body-corpus/2025/recovery-reviewed/metadata.sql 2025 71 2026-09-30 1064
+python3 scripts/prepare-scr-recovery-local.py /private/tmp/previous-release-simulation.sqlite /private/tmp/new-recovery-fixture.sqlite
+node scripts/verify-scr-recovery.mjs /private/tmp/new-recovery-fixture.sqlite
+```
+
+The fixture builder opens its source database read-only and refuses an existing
+output or an output outside `/private/tmp/`. The prior release simulation must
+contain the 930 published baseline records; the new 71 stay `validated` in the
+disposable fixture and return public 404s. Current production still contains
+930 published 2025 records; all 134 withheld identities remain public 404s.
+Remote byte verification and full release review are still required before
+publication. Native screen-reader and actual browser-zoom checks have not been
+performed for this recovery. Evidence URLs must be rechecked before release;
+one retained SCR PDF was served through a temporary official download URL.

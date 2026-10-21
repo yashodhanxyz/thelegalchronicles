@@ -765,6 +765,23 @@ async function listJudgments(request, env) {
   }), 200, robots);
 }
 
+function metadataVerificationNotice(document, record) {
+  const labels = {neutral_citation:'Neutral citation',decision_date:'Decision date',judge_spelling:'Judge name'};
+  const corrections = Array.isArray(document?.metadataCorrections)
+    ? document.metadataCorrections.filter(c => c && labels[c.field] && typeof c.original_value === 'string' && typeof c.corroborated_value === 'string') : [];
+  if (!corrections.length) return '';
+  const items = corrections.map(c => {
+    let href = record.source_listing_url || 'https://scr.sci.gov.in/scrsearch/';
+    try {
+      const url = new URL(c.source_url);
+      if (['https://api.sci.gov.in','https://scr.sci.gov.in'].includes(url.origin) && !url.username && !url.password) href=url.href;
+    } catch { /* Fall back to the known official source action. */ }
+    const retrieved = typeof c.retrieved_at === 'string' && !Number.isNaN(Date.parse(c.retrieved_at)) ? `<span> (retrieved <time datetime="${escapeHtml(c.retrieved_at)}">${escapeHtml(formatDate(c.retrieved_at.slice(0,10)))}</time>)</span>` : '';
+    return `<li>${labels[c.field]}: ${escapeHtml(c.corroborated_value)}. The SCR listing or text reports ${escapeHtml(c.original_value)}. <a href="${escapeHtml(href)}" rel="external">Verification PDF</a>${retrieved}.</li>`;
+  }).join('');
+  return `<section aria-labelledby="metadata-verification-title"><h3 id="metadata-verification-title">Metadata verification</h3><ul>${items}</ul><p>The original SCR text is preserved without correction.</p></section>`;
+}
+
 async function judgmentDetail(slug, env, legacyRequest = null, articleReview = false) {
   const [recordResult, judgesResult, assetsResult] = await env.DB.batch([
     env.DB.prepare(`
@@ -881,6 +898,7 @@ async function judgmentDetail(slug, env, legacyRequest = null, articleReview = f
           </section>
           <aside class="record-panel" aria-labelledby="record-title">
             <h2 id="record-title">Case facts</h2>
+            ${metadataVerificationNotice(bodyDocument,record)}
             ${record.source_citation_year === 2025 ? '<p class="source-note">Case number, case type and disposition are reported by the SCR search listing. Consult the original text when verifying the case record.</p>' : ''}
             <dl>
               <div><dt>Decision date</dt><dd><time datetime="${escapeHtml(record.decision_date_iso)}">${escapeHtml(formatDate(record.decision_date_iso))}</time></dd></div>
