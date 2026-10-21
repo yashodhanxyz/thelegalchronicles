@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {reconcileScrJudges} from '../scripts/lib/scr-judge-reconciliation.mjs';
 const source=(coram,author='')=>`<h1 class="Coram">${coram}</h1>${author?`<p class="Author-Name">${author}</p>`:''}`;
 test('original author markers resolve conflicting listing order and authorship',()=>{
@@ -23,4 +24,20 @@ test('conflicting original author evidence fails closed',()=>assert.throws(()=>r
 test('unapproved spelling variants do not fabricate a judge relationship',()=>assert.throws(()=>reconcileScrJudges({listingCoram:'DIPANKAR DATTA, MANMOHAN',documentHtml:source('[Dipankar Dutta* and Manmohan, JJ.]')}),/Unidentified/));
 test('CJI-positioned source author marker is recognized',()=>{
  const r=reconcileScrJudges({listingCoram:'BHUSHAN RAMKRISHNA GAVAI, SANJAY KUMAR',documentHtml:source('[B.R. Gavai, CJI* and Sanjay Kumar, J.]')});assert.equal(r.judges[0].is_author,1);
+});
+
+test('spelling recovery requires an explicit canonical author heading in the same original',()=>{
+ const options={listingCoram:'DIPANKAR DATTA, MANMOHAN',documentHtml:source('[Dipankar Dutta* and Manmohan, JJ.]')+'<p class="Judgement">Dipankar Datta, J.</p>',recoverDocumentedDattaSpelling:true};
+ const r=reconcileScrJudges(options);assert.equal(r.judges[0].name_source,'DIPANKAR DATTA');assert.equal(r.judges[0].is_author,1);
+ assert.throws(()=>reconcileScrJudges({...options,documentHtml:source('[Dipankar Dutta* and Manmohan, JJ.]')+'<p class="Judgement">Dipankar Dutta, J.</p>'}),/explicit original author heading/);
+ assert.throws(()=>reconcileScrJudges({...options,recoverDocumentedDattaSpelling:false}),/Unidentified/);
+});
+
+test('external spelling evidence is bound to the exact reviewed document and official source',()=>{
+ const html=source('[Dipankar Dutta* and Prashant Kumar Mishra, JJ.]');
+ const evidence={source_key:'2025:2025_4_2364_2396:2025INSC552',document_sha256:createHash('sha256').update(html).digest('hex'),corroborated_value:'Dipankar Datta',source_url:'https://api.sci.gov.in/reviewed.pdf',pdf_sha256:'a'.repeat(64)};
+ const options={listingCoram:'DIPANKAR DATTA, PRASHANT KUMAR MISHRA',documentHtml:html,recoverDocumentedDattaSpelling:true,externalDattaEvidence:evidence};
+ assert.equal(reconcileScrJudges(options).judges[0].is_author,1);
+ assert.throws(()=>reconcileScrJudges({...options,documentHtml:html+'<p>Different source</p>'}));
+ assert.throws(()=>reconcileScrJudges({...options,externalDattaEvidence:{...evidence,source_url:'https://example.com/unsupported.pdf'}}));
 });

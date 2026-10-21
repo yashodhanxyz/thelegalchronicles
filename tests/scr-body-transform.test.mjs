@@ -85,3 +85,20 @@ test("rejects Unicode replacement characters", () => {
     documentHtml: '<div id="_idContainer000"><p class="Judgement_L1">Bad � text</p></div>',
   }), /replacement character/u);
 });
+
+const legacyOptions = (href='[2025]_5_S.C.R._275-330.html#footnote-001') => ({
+ id:'legacy-recovery',neutralCitation:'2025 INSC 555',sourcePath:'2025_5_275_330',sourceNeutralKey:'2025INSC555',capturedAt:'2026-09-30T00:00:00Z',recoverLegacyFootnotes:true,
+ documentHtml:`<div id="_idContainer000"><p>Source <a class="_idFootnoteLink" href="${href}">1</a>.</p><p class="Footnote"><a class="_idFootnoteAnchor" href="[2025]_5_S.C.R._275-330.html#footnote-001-backlink">1</a> Original note.</p></div>`,
+});
+test('opt-in recovery reconstructs navigation from matching local source footnotes without changing text',()=>{
+ const result=transformScrDocument(legacyOptions());assert.equal(result.renderDocument.blocks[0].text,'Source 1.');assert.equal(result.renderDocument.blocks[1].text,'1 Original note.');assert.equal(result.renderDocument.blocks[0].footnoteReferences[0].backlinkId,'footnote-001-backlink');
+ assert.throws(()=>transformScrDocument({...legacyOptions(),recoverLegacyFootnotes:false}),/incomplete footnote reference/);
+});
+test('legacy recovery rejects external and other-document footnote links',()=>{
+ assert.throws(()=>transformScrDocument(legacyOptions('https://example.com/a.html#footnote-001')),/nonlocal/);
+ assert.throws(()=>transformScrDocument(legacyOptions('[2025]_5_S.C.R._331-340.html#footnote-001')),/another source/);
+});
+test('legacy recovery rejects duplicate references and mismatched source note numbers',()=>{
+ const options=legacyOptions();assert.throws(()=>transformScrDocument({...options,documentHtml:options.documentHtml.replace('Source <a','Source <a class="_idFootnoteLink" href="#footnote-001">1</a><a')}),/ambiguous footnote backlinks/);
+ assert.throws(()=>transformScrDocument({...options,documentHtml:options.documentHtml.replace('>1</a> Original note','>2</a> Original note')}),/mismatched footnote numbering/);
+});

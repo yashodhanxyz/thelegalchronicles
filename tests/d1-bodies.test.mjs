@@ -5,7 +5,7 @@ import worker from '../src/worker.js';
 
 async function responseFor(mode='valid') {
   const blocks=mode==='filename-footnote'?[{type:'paragraph',className:'Judgement_L1',text:'Source note 1.',footnoteReferences:[{number:'1',targetId:'[2025]_1.html#footnote-001',backlinkId:'footnote-001-backlink',offset:12}]},{type:'footnotes',className:'Footnote',text:'1 Original footnote.',footnote:{number:'1',id:'[2025]_1.html#footnote-001',backlinkId:'[2025]_1.html#footnote-001-backlink'}}]:mode==='joint-paragraphs'?[{type:'paragraph',className:'Judgement_L1',paragraphMarker:'1.',text:'1. First opinion.'},{type:'paragraph',className:'Judgement_L1',paragraphMarker:'1.',text:'1. Separate opinion.'}]:mode==='empty'?[]:[{type:'paragraph',className:'Judgement_L1',text:'Original judgment — preserved.'}];
-  const body=JSON.stringify({version:'scr-body-v1',neutralCitation:'2026 INSC 1',sourcePath:'2026_1_1_2',blocks,footnotes:[]});
+  const body=JSON.stringify({version:'scr-body-v1',neutralCitation:'2026 INSC 1',sourcePath:'2026_1_1_2',blocks,footnotes:[],...(mode==='metadata-correction'?{metadataCorrections:[{field:'neutral_citation',original_value:'bad <script>source</script>',corroborated_value:'2026 INSC 1',source_url:'javascript:alert(1)'}]}:{})});
   const bytes=Buffer.from(body), split=41;
   const rows=[bytes.subarray(0,split),bytes.subarray(split)].map((chunk,index)=>({byte_count:bytes.length,chunk_count:2,chunk_index:index,payload_base64:chunk.toString('base64')}));
   const record={slug:'d1-case',title_source:'Example v. State',neutral_citation:'2026 INSC 1',source_path:'2026_1_1_2',content_status:'validated',body_storage:'d1',body_render_sha256:createHash('sha256').update(body).digest('hex')};
@@ -36,4 +36,8 @@ test('SCR filename-prefixed footnotes return to the actual rendered reference',a
  assert.match(html,/href="#%5B2025%5D_1.html%23footnote-001"/);
  assert.match(html,/class="judgment-footnote-backlink" href="#footnote-001-backlink"/);
  assert.doesNotMatch(html,/href="#%5B2025%5D_1.html%23footnote-001-backlink"/);
+});
+
+test('metadata correction history is distinct from preserved text and cannot inject markup or active links',async()=>{
+ const r=await responseFor('metadata-correction');const html=await r.text();assert.equal(r.status,200);assert.match(html,/Metadata verification/);assert.match(html,/bad &lt;script&gt;source&lt;\/script&gt;/);assert.doesNotMatch(html,/href="javascript:/);assert.match(html,/Original judgment — preserved/);
 });
