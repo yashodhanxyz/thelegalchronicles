@@ -210,7 +210,7 @@ test("the judgment list renders source data as escaped server HTML", async () =>
   assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
   assert.match(html, /A &amp; B &lt;Limited&gt;/);
   assert.match(html, /<main id="main"/);
-  assert.match(html, /<h1 id="catalog-title">Judgments, made findable\.<\/h1>/);
+  assert.match(html, /<h1 id="catalog-title">2026 Supreme Court judgments<\/h1>/);
   assert.doesNotMatch(html, /class="eyebrow"/);
 });
 
@@ -521,22 +521,21 @@ test("sitemap includes the canonical indexable set only after a judgment is publ
     DB: {
       prepare() {
         return {
+          bind() { return this; },
           all: async () => ({
-            results: [{ slug: "published-case", updated_at: "2026-09-18 10:00:00" }],
+            results: [{ slug: "published-case", source_citation_year: 2026, updated_at: "2026-09-18 10:00:00" }],
           }),
         };
       },
     },
   };
   const response = await worker.fetch(
-    new Request("https://thelegalchronicles.com/sitemap.xml"),
+    new Request("https://thelegalchronicles.com/sitemaps/judgments-2026.xml"),
     env,
   );
   const xml = await response.text();
 
   assert.equal(response.headers.get("content-type"), "application/xml; charset=utf-8");
-  assert.match(xml, /<loc>https:\/\/thelegalchronicles\.com\/\<\/loc>/);
-  assert.match(xml, /<loc>https:\/\/thelegalchronicles\.com\/judgments\/supreme-court\/2026<\/loc>/);
   assert.match(xml, /https:\/\/thelegalchronicles\.com\/judgments\/published-case/);
   assert.match(xml, /<lastmod>2026-09-18<\/lastmod>/);
 });
@@ -562,4 +561,28 @@ test("database failures return a bounded JSON error for API callers", async () =
   assert.deepEqual(await response.json(), {
     error: "Catalog temporarily unavailable",
   });
+});
+
+test('2025 archive scopes queries, canonical, filters and pagination to its year', async () => {
+  const queries=[];
+  const DB={prepare(sql){queries.push(sql);return {bind(){return this;}};},async batch(){return [{results:[]},{results:[{total:25}]},{results:[]},{results:[]}];}};
+  const response=await worker.fetch(new Request('https://thelegalchronicles.com/judgments/supreme-court/2025?q=appeal&page=2'),{...assetsResponse(),DB});
+  const html=await response.text();
+  assert.equal(response.status,200);
+  assert.ok(queries.every(sql=>sql.includes('source_citation_year = 2025')));
+  assert.ok(queries.every(sql=>sql.includes("content_status = 'published'")));
+  assert.match(html,/<title>2025 Supreme Court Judgments/);
+  assert.match(html,/<h1 id="catalog-title">2025 Supreme Court judgments<\/h1>/);
+  assert.match(html,/rel="canonical" href="https:\/\/thelegalchronicles.com\/judgments\/supreme-court\/2025\?page=2"/);
+  assert.match(html,/action="\/judgments\/supreme-court\/2025"/);
+  assert.match(html,/href="\/judgments\/supreme-court\/2025\?q=appeal/);
+  assert.match(response.headers.get('x-robots-tag'),/noindex/);
+});
+
+test('sitemap includes only years represented by published records', async () => {
+ const DB={prepare(){return {all:async()=>({results:[{slug:'case-2025',source_citation_year:2025,updated_at:'2026-10-21'}]})};}};
+ const response=await worker.fetch(new Request('https://thelegalchronicles.com/sitemap.xml'),{...assetsResponse(),DB});
+ const xml=await response.text();
+ assert.match(xml,/\/sitemaps\/judgments-2025.xml<\/loc>/);
+ assert.doesNotMatch(xml,/\/sitemaps\/judgments-2026.xml<\/loc>/);
 });

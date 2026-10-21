@@ -211,8 +211,10 @@ const judgmentSectionIds = {
   Judgment_Heading: "judgment",
 };
 
-function renderJudgmentBlocks(blocks) {
+function renderJudgmentBlocks(blocks, {paragraphPrefix = "karol-p"} = {}) {
   const usedIds = new Set();
+  const paragraphOccurrences = new Map();
+  const footnoteBacklinks = new Map(blocks.flatMap(block => (block.footnoteReferences || []).map(reference => [reference.targetId, reference.backlinkId])));
   const renderText = (block, start = 0) => {
     const references = [...(block.footnoteReferences || [])].sort((a, b) => a.offset - b.offset);
     const inlineRanges = block.inlineRanges || [];
@@ -255,7 +257,7 @@ function renderJudgmentBlocks(blocks) {
           (item) => item.offset === from && item.offset + item.number.length === to,
         );
         segments.push(reference
-          ? `<a class="judgment-footnote-reference" id="${escapeHtml(reference.backlinkId)}" href="#${escapeHtml(reference.targetId)}" aria-label="Footnote ${escapeHtml(reference.number)}"><sup>${styledValue}</sup></a>`
+          ? `<a class="judgment-footnote-reference" id="${escapeHtml(reference.backlinkId)}" href="#${escapeHtml(encodeURIComponent(reference.targetId))}" aria-label="Footnote ${escapeHtml(reference.number)}"><sup>${styledValue}</sup></a>`
           : styledValue);
       }
       return segments.join("");
@@ -263,8 +265,10 @@ function renderJudgmentBlocks(blocks) {
 
     if (start === 0 && block.paragraphMarker && block.text.startsWith(block.paragraphMarker)) {
       const mainOpinionNumber = block.className === "Judgement_L1" && /^(\d+)\.$/u.exec(block.paragraphMarker)?.[1];
+      const occurrence = mainOpinionNumber ? (paragraphOccurrences.get(mainOpinionNumber) || 0) + 1 : 0;
+      if (mainOpinionNumber) paragraphOccurrences.set(mainOpinionNumber, occurrence);
       const paragraphAnchor = mainOpinionNumber
-        ? ` id="karol-p-${mainOpinionNumber}" tabindex="-1"`
+        ? ` id="${paragraphPrefix}-${mainOpinionNumber}${occurrence > 1 ? `-${occurrence}` : ''}" tabindex="-1"`
         : "";
       return `<span${paragraphAnchor} class="judgment-paragraph-number">${escapeHtml(block.paragraphMarker)}</span> ${renderRange(block.paragraphMarker.length)}`;
     }
@@ -275,7 +279,7 @@ function renderJudgmentBlocks(blocks) {
     if (block.type === "rule") return `<hr class="judgment-rule">`;
     const text = renderText(block);
     const sourceId = judgmentSectionIds[block.className];
-    const resultId = block.className.startsWith("Result-of-the-Case") ? "result" : null;
+    const resultId = block.className.startsWith("Result-of-the-Case") || /^Result of the case\s*:/iu.test(block.text) ? "result" : null;
     const preferredId = sourceId || resultId;
     const id = preferredId && !usedIds.has(preferredId) ? preferredId : null;
     if (id) usedIds.add(id);
@@ -294,7 +298,11 @@ function renderJudgmentBlocks(blocks) {
     if (block.className === "Footnote" || block.type === "footnotes") {
       if (block.footnote) {
         const footnoteBody = renderText(block, block.footnote.number.length);
-        return `<p class="judgment-footnote" id="${escapeHtml(block.footnote.id)}" tabindex="-1"><a class="judgment-footnote-backlink" href="#${escapeHtml(block.footnote.backlinkId)}" aria-label="Return to footnote reference ${escapeHtml(block.footnote.number)}">${escapeHtml(block.footnote.number)}</a>${footnoteBody}</p>`;
+        const backlinkId = footnoteBacklinks.get(block.footnote.id);
+        const number = backlinkId
+          ? `<a class="judgment-footnote-backlink" href="#${escapeHtml(encodeURIComponent(backlinkId))}" aria-label="Return to footnote reference ${escapeHtml(block.footnote.number)}">${escapeHtml(block.footnote.number)}</a>`
+          : escapeHtml(block.footnote.number);
+        return `<p class="judgment-footnote" id="${escapeHtml(block.footnote.id)}" tabindex="-1">${number}${footnoteBody}</p>`;
       }
       return `<p class="judgment-footnote">${text}</p>`;
     }
@@ -332,7 +340,7 @@ function judgmentContents(blocks) {
   const sectionIds = [];
   for (const block of blocks) {
     const sectionId = judgmentSectionIds[block.className]
-      || (block.className.startsWith("Result-of-the-Case") ? "result" : null);
+      || (block.className.startsWith("Result-of-the-Case") || /^Result of the case\s*:/iu.test(block.text) ? "result" : null);
     if (sectionId && !sectionIds.includes(sectionId)) sectionIds.push(sectionId);
   }
   if (!sectionIds.length) return "";
@@ -592,6 +600,8 @@ function queryString(values) {
 
 async function listJudgments(request, env) {
   const url = new URL(request.url);
+  const year = Number(url.pathname.match(/\/(2025|2026)\/?$/)?.[1] || 2026);
+  const catalogPath = `/judgments/supreme-court/${year}`;
   const localReview = isLocalArticleReview(request);
   const q = (url.searchParams.get("q") || "").trim().slice(0, 120);
   const caseType = (url.searchParams.get("case_type") || "").trim().slice(0, 100);
@@ -600,10 +610,13 @@ async function listJudgments(request, env) {
   const offset = (page - 1) * PAGE_SIZE;
   const likeQuery = `%${q}%`;
 
-  const publicationFilter = localReview ? "" : "AND j.content_status = 'published'";
+  const releaseFilter = localReview
+    ? (year === 2025 ? "AND content_status IN ('validated', 'published')" : "")
+    : "AND content_status = 'published'";
+  const publicationFilter = releaseFilter.replaceAll('content_status', 'j.content_status');
   const where = `
     j.source_system = 'scr'
-    AND j.source_citation_year = 2026
+    AND j.source_citation_year = ${year}
     ${publicationFilter}
     AND (?1 = '' OR j.title_source LIKE ?2 OR j.neutral_citation LIKE ?2 OR j.scr_citation LIKE ?2 OR j.case_number_source LIKE ?2)
     AND (?3 = '' OR j.case_type = ?3)
@@ -620,7 +633,7 @@ async function listJudgments(request, env) {
       SELECT
         j.slug, j.public_id, j.decision_year, j.source_citation_year, j.title_source, j.scr_citation, j.neutral_citation,
         j.decision_date_iso, j.case_number_source, j.case_type,
-        j.disposal_nature_source, j.bench_size_source, j.coram_source,
+        j.disposal_nature_source, j.bench_size_source, j.bench_size, j.coram_source,
         j.result_excerpt_source, j.content_status
       FROM judgments AS j
       WHERE ${where}
@@ -632,7 +645,7 @@ async function listJudgments(request, env) {
     env.DB.prepare(`
       SELECT case_type, COUNT(*) AS records
       FROM judgments
-      WHERE source_system = 'scr' AND source_citation_year = 2026 ${localReview ? "" : "AND content_status = 'published'"} AND case_type IS NOT NULL
+      WHERE source_system = 'scr' AND source_citation_year = ${year} ${releaseFilter} AND case_type IS NOT NULL
       GROUP BY case_type
       ORDER BY records DESC, case_type
     `),
@@ -641,7 +654,7 @@ async function listJudgments(request, env) {
       FROM judges AS judge
       JOIN judgment_judges AS jj ON jj.judge_id = judge.id
       JOIN judgments AS j ON j.id = jj.judgment_id
-      WHERE j.source_system = 'scr' AND j.source_citation_year = 2026 ${localReview ? "" : "AND j.content_status = 'published'"}
+      WHERE j.source_system = 'scr' AND j.source_citation_year = ${year} ${publicationFilter}
       GROUP BY judge.id
       ORDER BY records DESC, judge.name_normalized
     `),
@@ -653,12 +666,12 @@ async function listJudgments(request, env) {
   const safePage = Math.min(page, pages);
   if (page > pages && total > 0) {
     return Response.redirect(
-      `${url.origin}${COURT_CATALOG}${queryString({ q, case_type: caseType, judge, page: pages })}`,
+      `${url.origin}${catalogPath}${queryString({ q, case_type: caseType, judge, page: pages })}`,
       302,
     );
   }
   const activeFilters = Boolean(q || caseType || judge);
-  const canonical = `${SITE_ORIGIN}${COURT_CATALOG}${safePage > 1 ? `?page=${safePage}` : ""}`;
+  const canonical = `${SITE_ORIGIN}${catalogPath}${safePage > 1 ? `?page=${safePage}` : ""}`;
   const robots = localReview ? "noindex, nofollow" : activeFilters || total === 0 ? "noindex, follow" : "index, follow";
 
   const cards = records.map((record) => `
@@ -671,7 +684,7 @@ async function listJudgments(request, env) {
       <dl class="card-facts">
         <div><dt>Decision</dt><dd><time datetime="${escapeHtml(record.decision_date_iso)}">${escapeHtml(formatDate(record.decision_date_iso))}</time></dd></div>
         <div><dt>Case</dt><dd>${escapeHtml(record.case_number_source)}</dd></div>
-        <div><dt>Bench</dt><dd>${escapeHtml(record.bench_size_source || "Not stated")}</dd></div>
+        <div><dt>Bench</dt><dd>${escapeHtml(record.source_citation_year === 2025 && record.bench_size ? `${record.bench_size} judges` : record.bench_size_source || "Not stated")}</dd></div>
       </dl>
       ${record.result_excerpt_source ? `<p class="excerpt">${escapeHtml(record.result_excerpt_source)}</p>` : ""}
       <a class="read-link" href="${judgmentPath(record)}">View judgment record <span aria-hidden="true">→</span></a>
@@ -691,26 +704,27 @@ async function listJudgments(request, env) {
 
   const baseParams = { q, case_type: caseType, judge };
   const previous = safePage > 1
-    ? `<a rel="prev" href="${COURT_CATALOG}${queryString({ ...baseParams, page: safePage - 1 })}">← Previous</a>`
+    ? `<a rel="prev" href="${catalogPath}${queryString({ ...baseParams, page: safePage - 1 })}">← Previous</a>`
     : `<span aria-disabled="true">← Previous</span>`;
   const next = safePage < pages
-    ? `<a rel="next" href="${COURT_CATALOG}${queryString({ ...baseParams, page: safePage + 1 })}">Next →</a>`
+    ? `<a rel="next" href="${catalogPath}${queryString({ ...baseParams, page: safePage + 1 })}">Next →</a>`
     : `<span aria-disabled="true">Next →</span>`;
 
   const content = `
     <main id="main" tabindex="-1" class="catalog-shell">
       <section class="catalog-intro" aria-labelledby="catalog-title">
-        <h1 id="catalog-title">Judgments, made findable.</h1>
-        <p>Browse the verified 2026 SCR catalog by case, judge, citation, and decision details.</p>
-        <p class="source-note">Source metadata: Supreme Court Reports (SCR). The authoritative source record prevails.</p>
+        <h1 id="catalog-title">${year} Supreme Court judgments</h1>
+        <p>Browse the collected ${year} SCR catalog by case, judge, citation, and decision details.</p>
+        <nav aria-label="Judgment year"><a href="/judgments/supreme-court/2026"${year === 2026 ? ' aria-current="page"' : ''}>2026 judgments</a> · <a href="/judgments/supreme-court/2025"${year === 2025 ? ' aria-current="page"' : ''}>2025 judgments</a></nav>
+        <p class="source-note">This collection does not claim complete annual coverage. Source metadata: Supreme Court Reports (SCR). The authoritative source record prevails.</p>
       </section>
-      <form class="filters" action="${COURT_CATALOG}" method="get" role="search">
+      <form class="filters" action="${catalogPath}" method="get" role="search">
         <label class="search-field">
           <span>Search judgments</span>
           <input type="search" name="q" value="${escapeHtml(q)}" placeholder="Case name, citation or number" autocomplete="off">
         </label>
         <label>
-          <span>Case type</span>
+          <span>Case type (SCR listing)</span>
           <select name="case_type">
             <option value="">All case types</option>
             ${caseTypeOptions}
@@ -724,7 +738,7 @@ async function listJudgments(request, env) {
           </select>
         </label>
         <button type="submit">Apply filters</button>
-        ${activeFilters ? `<a class="clear-link" href="${COURT_CATALOG}">Clear</a>` : ""}
+        ${activeFilters ? `<a class="clear-link" href="${catalogPath}">Clear</a>` : ""}
       </form>
       <section class="results" aria-labelledby="results-title">
         <div class="results-heading">
@@ -742,8 +756,8 @@ async function listJudgments(request, env) {
   `;
 
   return htmlResponse(pageShell({
-    title: `2026 Supreme Court Judgments${safePage > 1 ? ` — Page ${safePage}` : ""} | ${SITE_NAME}`,
-    description: `Browse verified 2026 Supreme Court Reports judgment metadata by case, judge, citation and decision details.${safePage > 1 ? ` Page ${safePage} of ${pages}.` : ""}`,
+    title: `${year} Supreme Court Judgments${safePage > 1 ? ` — Page ${safePage}` : ""} | ${SITE_NAME}`,
+    description: `Browse collected ${year} Supreme Court Reports judgment metadata by case, judge, citation and decision details.${safePage > 1 ? ` Page ${safePage} of ${pages}.` : ""}`,
     canonical,
     robots,
     current: "judgments",
@@ -845,11 +859,11 @@ async function judgmentDetail(slug, env, legacyRequest = null, articleReview = f
   const bodyStatus = bodyMode === "pilot"
     ? `<section class="pilot-warning" aria-labelledby="body-status-title"><h2 id="body-status-title">Pilot text · Not yet published</h2><p>This source-attributed preview remains non-indexed while the complete 279-judgment corpus is collected and validated.</p></section>`
     : bodyMode === "validated"
-      ? `<section class="pilot-warning" aria-labelledby="body-status-title"><h2 id="body-status-title">Validated text · Not yet published</h2><p>This judgment has passed automated source-fidelity checks and remains non-indexed until the complete 279-judgment release passes its final production gate.</p></section>`
+      ? `<section class="pilot-warning" aria-labelledby="body-status-title"><h2 id="body-status-title">Validated text · Not yet published</h2><p>This judgment has passed automated source-fidelity checks and remains non-indexed until publication review is complete.</p></section>`
       : "";
   const content = `
     <main id="main" tabindex="-1" class="detail-shell reading-desk">
-      <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="${COURT_CATALOG}">Judgments</a><span aria-hidden="true">/</span><span>2026</span></nav>
+      <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/judgments/supreme-court/${record.source_citation_year}">Judgments</a><span aria-hidden="true">/</span><span>${escapeHtml(record.source_citation_year)}</span></nav>
       <article class="judgment-detail">
         <header class="detail-header">
           <h1>${escapeHtml(record.title_source)}</h1>
@@ -859,23 +873,27 @@ async function judgmentDetail(slug, env, legacyRequest = null, articleReview = f
           ${articleReview && articleDrafts.some(a=>a.id===record.public_id) ? `<p class="article-review-link"><a href="${escapeHtml(articleDrafts.find(a=>a.id===record.public_id).proposed_article_path)}">Read the draft explainer for this judgment</a> · Editorial review pending</p>` : ""}
         </header>
         <div class="reading-desk-grid">
-          <div class="desk-navigation">${bodyDocument ? judgmentContents(bodyDocument.blocks) : ''}${articleReview && record.public_id === "417b8667" ? '<a class="back-to-results" href="#kptcl-concurrence">Separate concurrence · official PDF guide</a>' : ''}<a class="back-to-results" href="${COURT_CATALOG}">Back to judgments</a></div>
+          <div class="desk-navigation">${bodyDocument ? judgmentContents(bodyDocument.blocks) : ''}${articleReview && record.public_id === "417b8667" ? '<a class="back-to-results" href="#kptcl-concurrence">Separate concurrence · official PDF guide</a>' : ''}<a class="back-to-results" href="/judgments/supreme-court/${record.source_citation_year}">Back to judgments</a></div>
           <section id="original-text" class="desk-document" aria-labelledby="judgment-text-title" tabindex="-1">
             <h2 id="judgment-text-title" class="desk-document-label">Original SCR text</h2>
-            ${bodyDocument ? `<section class="judgment-reading" aria-label="Judgment text">${renderJudgmentBlocks(bodyDocument.blocks)}</section>` : `<section class="content-notice" aria-labelledby="text-status-title"><h2 id="text-status-title">Full judgment text is being verified.</h2><p>This page contains source metadata only. The original text is withheld until its source identity and fidelity are verified.</p></section>`}
+            ${bodyDocument ? `<section class="judgment-reading" aria-label="Judgment text">${renderJudgmentBlocks(bodyDocument.blocks, {paragraphPrefix: record.source_citation_year === 2025 ? "p" : "karol-p"})}</section>` : `<section class="content-notice" aria-labelledby="text-status-title"><h2 id="text-status-title">Full judgment text is being verified.</h2><p>This page contains source metadata only. The original text is withheld until its source identity and fidelity are verified.</p></section>`}
             ${articleReview && record.public_id === "417b8667" ? kptclConcurrenceSupplement() : ""}
           </section>
           <aside class="record-panel" aria-labelledby="record-title">
             <h2 id="record-title">Case facts</h2>
+            ${record.source_citation_year === 2025 ? '<p class="source-note">Case number, case type and disposition are reported by the SCR search listing. Consult the original text when verifying the case record.</p>' : ''}
             <dl>
               <div><dt>Decision date</dt><dd><time datetime="${escapeHtml(record.decision_date_iso)}">${escapeHtml(formatDate(record.decision_date_iso))}</time></dd></div>
               <div><dt>Case number</dt><dd>${escapeHtml(record.case_number_source)}</dd></div>
               <div><dt>Case type</dt><dd>${escapeHtml(record.case_type || "Not stated")}</dd></div>
               <div><dt>Judges</dt><dd>${judgeLinks}</dd></div>
-              <div><dt>Bench</dt><dd>${escapeHtml(record.bench_size_source || "Not stated")}</dd></div>
+              ${record.source_citation_year === 2025 && bodyDocument ? `<div><dt>Authorship (SCR text)</dt><dd>${escapeHtml(judges.filter(judge => judge.is_author).map(judge => judge.name_source).join(", ") || "Not verified from the checked SCR author fields")}</dd></div>` : ''}
+              <div><dt>Bench</dt><dd>${escapeHtml(record.source_citation_year === 2025 && record.bench_size ? `${record.bench_size} judges` : record.bench_size_source || "Not stated")}</dd></div>
               <div><dt>Disposition</dt><dd>${escapeHtml(record.disposal_nature_source || "Not stated by the source")}</dd></div>
             </dl>
 
+            ${record.source_citation_year === 2025 && bodyDocument ? '<p class="source-note">Bench order and authorship follow the preserved SCR judgment text. Where no author is identified in the checked source fields, authorship remains unverified. Search-listing markers may differ.</p>' : ''}
+            ${record.body_captured_at ? `<p class="source-note">SCR text retrieved <time datetime="${escapeHtml(record.body_captured_at)}">${escapeHtml(formatDate(record.body_captured_at.slice(0,10)))}</time>.</p>` : ''}
             <a class="source-link" href="${escapeHtml(record.source_listing_url)}" rel="external">View Supreme Court Reports source <span aria-hidden="true">↗</span></a>
           </aside>
         </div>
@@ -922,11 +940,11 @@ async function judgeProfile(slug,request,env) {
  <header class="judge-identity${judgePortrait(name)?'':' judge-identity-no-photo'}">
  ${judgePortrait(name)}
  <div class="judge-identity-content"><p class="judge-court">Supreme Court of India</p><h1>${escapeHtml(name)}</h1><p class="judge-role">${escapeHtml(result.role_at_retrieval||'Biography not yet collected')}</p>${dates}
- <div class="judge-collection"><div><p class="judge-collection-label">In our 2026 collection</p>${collectionStats}</div><a class="judge-primary-link" href="#judge-judgments-title">View judgments</a></div></div>
+ <div class="judge-collection"><div><p class="judge-collection-label">In our collection</p>${collectionStats}</div><a class="judge-primary-link" href="#judge-judgments-title">View judgments</a></div></div>
  </header>
  <nav class="judge-section-nav" aria-label="On this profile"><a href="#biography-title">Biography</a><a href="#judge-judgments-title">Judgments</a></nav>
  <section class="judge-profile-section" aria-labelledby="biography-title"><div class="judge-section-label" aria-hidden="true">Biography</div><div class="judge-section-content"><h2 id="biography-title" tabindex="-1">Official biography</h2>${sourceNote}${paragraphs.length?paragraphs.map(p=>`<p class="judge-biography">${escapeHtml(p)}</p>`).join(''):'<p>An official biography has not yet been verified.</p>'}</div></section>
- <section class="judge-profile-section judge-judgments" aria-labelledby="judge-judgments-title"><div class="judge-section-label" aria-hidden="true">Judgments</div><div class="judge-section-content"><div class="judge-section-heading"><h2 id="judge-judgments-title" tabindex="-1">Judgments in our 2026 collection</h2>${Number(counts.total)>0?`<a class="read-link" href="${catalogHref}">View all ${Number(counts.total)} judgments</a>`:''}</div><p class="judge-collection-note">${Number(counts.total)} bench appearances · ${Number(counts.authored)} records identify this judge as author. These counts describe our collected records, not the judge’s complete career or individual agreement with every opinion.</p>${(judgments.results||[]).map(j=>`<article><h3><a href="${judgmentPath(j)}">${escapeHtml(displayCaseTitle(j.title_source))}</a></h3><p class="source-note">${escapeHtml(j.neutral_citation)} · ${escapeHtml(formatDate(j.decision_date_iso))} · ${j.is_author?'Author identified by SCR':'Bench member'}</p></article>`).join('')||'<p>No judgments connected to this judge are currently in our collection.</p>'}${counts.total>20?`<a class="read-link judge-all-link" href="${catalogHref}">View all ${Number(counts.total)} judgments in the catalog</a>`:''}</div></section></main>`;
+ <section class="judge-profile-section judge-judgments" aria-labelledby="judge-judgments-title"><div class="judge-section-label" aria-hidden="true">Judgments</div><div class="judge-section-content"><div class="judge-section-heading"><h2 id="judge-judgments-title" tabindex="-1">Judgments in our collection</h2>${Number(counts.total)>0?`<a class="read-link" href="${catalogHref}">Browse 2026 judgments</a>`:''}</div><nav aria-label="Judgments by year"><a href="${catalogHref}">2026 judgments</a> · <a href="/judgments/supreme-court/2025?judge=${encodeURIComponent(result.slug)}">2025 judgments</a></nav><p class="judge-collection-note">${Number(counts.total)} bench appearances · ${Number(counts.authored)} records identify this judge as author. These counts describe our collected records, not the judge’s complete career or individual agreement with every opinion.</p>${(judgments.results||[]).map(j=>`<article><h3><a href="${judgmentPath(j)}">${escapeHtml(displayCaseTitle(j.title_source))}</a></h3><p class="source-note">${escapeHtml(j.neutral_citation)} · ${escapeHtml(formatDate(j.decision_date_iso))} · ${j.is_author?'Author identified by SCR':'Bench member'}</p></article>`).join('')||'<p>No judgments connected to this judge are currently in our collection.</p>'}${counts.total>20?`<a class="read-link judge-all-link" href="${catalogHref}">Browse 2026 judgments in the catalog</a>`:''}</div></section></main>`;
  return htmlResponse(pageShell({title:`${name} | ${SITE_NAME}`,description:`Official-source biography of ${name} and published judgments in our collection.`,person:name,canonical:`${SITE_ORIGIN}/judges/supreme-court/${encodeURIComponent(slug)}`,robots:'index, follow',content}),200,'index, follow');
 }
 
@@ -1142,6 +1160,7 @@ async function apiJudgment(slug, env) {
     data: {
       ...record,
       judges: judgesResult.results || [],
+      ...(record.source_citation_year === 2025 ? {judge_attribution_source: "Preserved SCR judgment text", listing_metadata_note: "coram_source and bench_size_source preserve the search listing; judges and bench_size follow the reviewed original text.", authorship_status: (judgesResult.results || []).some(judge => judge.is_author) ? "identified_in_reviewed_source_fields" : "unverified"} : {}),
       source_assets: assetsResult.results || [],
       case_enrichment: caseEnrichment,
     },
@@ -1165,7 +1184,7 @@ async function apiFilters(env) {
       WHERE judgment.source_system = 'scr' AND judgment.content_status = 'published'
       GROUP BY judge.id ORDER BY records DESC, judge.name_normalized
     `),
-    env.DB.prepare(`SELECT bench_size AS value, bench_size_source AS label, COUNT(*) AS records FROM judgments WHERE source_system = 'scr' AND content_status = 'published' AND bench_size IS NOT NULL GROUP BY bench_size, bench_size_source ORDER BY bench_size`),
+    env.DB.prepare(`SELECT bench_size AS value, CASE WHEN source_citation_year = 2025 THEN CAST(bench_size AS TEXT) || ' Judges' ELSE bench_size_source END AS label, COUNT(*) AS records FROM judgments WHERE source_system = 'scr' AND content_status = 'published' AND bench_size IS NOT NULL GROUP BY bench_size, label ORDER BY bench_size`),
   ]);
   return jsonResponse({
     data: {
@@ -1178,29 +1197,30 @@ async function apiFilters(env) {
   });
 }
 
-async function sitemap(env) {
-  const result = await env.DB.prepare(`
-    SELECT slug, public_id, decision_year, source_citation_year, updated_at
-    FROM judgments
-    WHERE source_system = 'scr' AND content_status = 'published'
-    ORDER BY id
-  `).all();
-  const published = result.results || [];
-  const judgmentUrls = published.map((record) => `
-  <url><loc>${SITE_ORIGIN}${judgmentPath(record)}</loc><lastmod>${escapeHtml(String(record.updated_at).slice(0, 10))}</lastmod></url>`).join("");
-  const articleUrls = publicArticles.map((article) => `<url><loc>${SITE_ORIGIN}${escapeHtml(article.proposed_article_path)}</loc><lastmod>${RELEASE_DATE}</lastmod></url>`).join("");
-  const judgesResult = await env.DB.prepare(`SELECT j.slug FROM judges j JOIN judge_profiles p ON p.judge_id=j.id ORDER BY j.slug`).all();
-  const judgeUrls = (judgesResult.results || []).map((judge) => `<url><loc>${SITE_ORIGIN}/judges/supreme-court/${escapeHtml(judge.slug)}</loc></url>`).join("");
-  const authorUrl = `<url><loc>${SITE_ORIGIN}/authors/${authorProfile.slug}</loc></url>`;
-  return textResponse(`<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>${SITE_ORIGIN}/</loc></url>
-  <url><loc>${SITE_ORIGIN}${COURT_CATALOG}</loc></url>
-  <url><loc>${SITE_ORIGIN}/articles</loc></url>
-  <url><loc>${SITE_ORIGIN}/judges/supreme-court</loc></url>
-  <url><loc>${SITE_ORIGIN}/editorial-policy</loc></url>
-  <url><loc>${SITE_ORIGIN}/corrections</loc></url>${authorUrl}${articleUrls}${judgeUrls}${judgmentUrls}
-</urlset>`, "application/xml; charset=utf-8", "public, max-age=300, s-maxage=3600");
+async function sitemap(env, section = 'index') {
+  const xmlResponse = content => textResponse(`<?xml version="1.0" encoding="UTF-8"?>\n${content}`, "application/xml; charset=utf-8", "public, max-age=300, s-maxage=3600");
+  if (section === 'index' || section === 'pages') {
+    const result = await env.DB.prepare(`SELECT DISTINCT source_citation_year FROM judgments WHERE source_system = 'scr' AND content_status = 'published' ORDER BY source_citation_year DESC`).all();
+    const years = (result.results || []).map(record => record.source_citation_year).filter(year => [2025, 2026].includes(year));
+    if (section === 'index') {
+      const sections = ['pages', 'articles', 'judges', ...years.map(year => `judgments-${year}`)];
+      return xmlResponse(`<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${sections.map(name => `<sitemap><loc>${SITE_ORIGIN}/sitemaps/${name}.xml</loc></sitemap>`).join('')}</sitemapindex>`);
+    }
+    const paths = ['/', '/articles', '/judges/supreme-court', '/editorial-policy', '/corrections', `/authors/${authorProfile.slug}`, ...years.map(year => `/judgments/supreme-court/${year}`)];
+    return xmlResponse(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${paths.map(path => `<url><loc>${SITE_ORIGIN}${path}</loc></url>`).join('')}</urlset>`);
+  }
+  let urls;
+  if (section === 'articles') {
+    urls = publicArticles.map(article => `<url><loc>${SITE_ORIGIN}${escapeHtml(article.proposed_article_path)}</loc><lastmod>${RELEASE_DATE}</lastmod></url>`).join('');
+  } else if (section === 'judges') {
+    const result = await env.DB.prepare(`SELECT j.slug FROM judges j JOIN judge_profiles p ON p.judge_id=j.id ORDER BY j.slug`).all();
+    urls = (result.results || []).map(judge => `<url><loc>${SITE_ORIGIN}/judges/supreme-court/${escapeHtml(judge.slug)}</loc></url>`).join('');
+  } else {
+    const year = Number(section.slice('judgments-'.length));
+    const result = await env.DB.prepare(`SELECT slug, public_id, decision_year, source_citation_year, updated_at FROM judgments WHERE source_system = 'scr' AND content_status = 'published' AND source_citation_year = ?1 ORDER BY id`).bind(year).all();
+    urls = (result.results || []).map(record => `<url><loc>${SITE_ORIGIN}${judgmentPath(record)}</loc><lastmod>${escapeHtml(String(record.updated_at).slice(0,10))}</lastmod></url>`).join('');
+  }
+  return xmlResponse(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
 }
 
 function llmsTxt() {
@@ -1338,7 +1358,7 @@ export default {
         response = await judgesDirectory(env);
       } else if (readable && /^\/judges\/supreme-court\/[^/]+$/.test(url.pathname)) {
         response = await judgeProfile(decodeURIComponent(url.pathname.split('/').at(-1)),request,env);
-      } else if (readable && /^\/judgments\/supreme-court\/2026\/?$/.test(url.pathname)) {
+      } else if (readable && /^\/judgments\/supreme-court\/(?:2025|2026)\/?$/.test(url.pathname)) {
         response = await listJudgments(request, env);
       } else if (readable && /^\/judgments\/supreme-court\/\d{4}\/[^/]+-[a-z0-9]{8}\/?$/.test(url.pathname)) {
         const parts = url.pathname.replace(/\/$/, '').split('/');
@@ -1364,6 +1384,8 @@ export default {
         response = llmsTxt();
       } else if (readable && url.pathname === "/sitemap.xml") {
         response = await sitemap(env);
+      } else if (readable && /^\/sitemaps\/(pages|articles|judges|judgments-(2025|2026))\.xml$/.test(url.pathname)) {
+        response = await sitemap(env, url.pathname.split('/').at(-1).slice(0,-4));
       } else {
         response = await env.ASSETS.fetch(request);
       }
