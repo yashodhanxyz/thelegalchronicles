@@ -145,3 +145,36 @@ Remote byte verification and full release review are still required before
 publication. Native screen-reader and actual browser-zoom checks have not been
 performed for this recovery. Evidence URLs must be rechecked before release;
 one retained SCR PDF was served through a temporary official download URL.
+
+
+### Recovered-judgment release gate (21 October 2026)
+
+The 71 private recovery candidates were rechecked for release. **70 pass the
+source/evidence gate; 64 remain withheld overall.** The original 63 holds remain.
+Pride Foramer is additionally withheld because its temporary official SCR
+verification-PDF URL now returns HTTP 404; a durable official replacement is
+required before publishing that date correction. The other three official
+verification PDFs were downloaded again with certificate validation enabled
+and match their recorded SHA-256 hashes.
+
+The private `recovery-reviewed/release-70/` package contains a contiguous
+70-record metadata inventory, five body SQL batches, 140 source/render objects,
+and a publication allowlist guarded by exact source/render hashes and validated
+status. Its disposable SQLite rehearsal reached 1,000 published 2025 records,
+with all other existing judgment rows unchanged and foreign keys valid.
+Production reconciliation verified all 140 object bytes, metadata and judge
+relationships with foreign keys valid; all pre-existing rows and relationships
+are unchanged. A fresh D1 Time Travel bookmark was recorded. The 70 records are
+validated and unpublished pending deployment and live release verification. Never execute the earlier
+930-record release scripts for this recovery batch.
+
+Native Chrome keyboard search, both filter selections, result navigation,
+reading jump, and footnote return passed. Actual Chrome 200% zoom was checked
+on the archive and judgment reader, alongside the prior all-71 320px reflow,
+JavaScript-disabled, automated accessibility, text-spacing, contrast,
+reduced-motion and slow-network checks. VoiceOver access timed out twice and
+no mobile tester is available. The user explicitly approved desktop and mobile
+screen-reader exceptions for this recovery release; these checks remain
+**untested**, not passed. The existing skipped private-fixture test is unchanged
+(94 tests passed, one skipped); `npm run check`, pilot and inventory validation
+passed. Publication results will be recorded after live verification.
