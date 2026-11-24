@@ -359,7 +359,7 @@ test("validated R2 judgment text is server rendered and remains noindex before p
 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("x-robots-tag"), "noindex, follow");
-  assert.match(html, /Validated text · Not yet published/);
+  assert.doesNotMatch(html, /Validated text · Not yet published/);
   assert.match(html, /Complete source judgment text\./);
   assert.match(html, /id="judgment" tabindex="-1"/);
   assert.doesNotMatch(html, /<script(?! type="application\/ld\+json")/);
@@ -585,4 +585,34 @@ test('sitemap includes only years represented by published records', async () =>
  const xml=await response.text();
  assert.match(xml,/\/sitemaps\/judgments-2025.xml<\/loc>/);
  assert.doesNotMatch(xml,/\/sitemaps\/judgments-2026.xml<\/loc>/);
+});
+
+test("judgment PDF downloads follow the judgment publication status", async () => {
+  const bytes = Buffer.from("%PDF-1.7\n%%EOF\n");
+  const env = {
+    DB: {
+      prepare(sql) {
+        assert.match(sql, /j\.content_status = 'published'/u);
+        return {
+          bind(id, allowUnpublished) {
+            assert.equal(id, "fb128104");
+            return {
+              all: async () => ({
+                results: allowUnpublished ? [
+                  { neutral_citation: "2026 INSC 1178", payload_base64: bytes.toString("base64") },
+                ] : [],
+              }),
+            };
+          },
+        };
+      },
+    },
+  };
+  const path = "/judgments/pdf/fb128104";
+  const withheld = await worker.fetch(new Request("https://thelegalchronicles.com" + path), env);
+  assert.equal(withheld.status, 404);
+  const local = await worker.fetch(new Request("http://127.0.0.1" + path), env);
+  assert.equal(local.status, 200);
+  assert.equal(local.headers.get("content-disposition"), 'attachment; filename="2026-INSC-1178.pdf"');
+  assert.deepEqual(Buffer.from(await local.arrayBuffer()), bytes);
 });

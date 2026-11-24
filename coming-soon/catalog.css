@@ -89,8 +89,8 @@ summary:focus-visible {
 
 .wordmark {
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(2rem, 2.7vw, 2.75rem);
-  font-weight: 700;
+  font-size: clamp(1.875rem, 2.55vw, 2.625rem);
+  font-weight: 400;
   letter-spacing: -0.055em;
   text-decoration: none;
 }
@@ -102,10 +102,19 @@ summary:focus-visible {
 }
 
 .site-header nav a {
-  padding-block: 0.7rem;
+  padding: 0.7rem 0.65rem;
+  margin-inline: -0.65rem;
   font-size: 0.9rem;
-  font-weight: 700;
+  font-weight: 400;
   text-decoration: none;
+}
+
+.site-header nav a:hover,
+.site-header nav a:focus-visible,
+.reading-desk .split-contents a:hover,
+.reading-desk .split-contents a:focus-visible {
+  color: var(--accent-dark);
+  background-color: #e9dfd0;
 }
 
 .site-search {
@@ -1101,7 +1110,7 @@ h1 {
   }
 
   .wordmark {
-    font-size: 2rem;
+    font-size: 1.875rem;
   }
 
   .home-intro {
@@ -1260,6 +1269,7 @@ h1 {
 .judgment-card { padding-block: 1.4rem; }
 .judgment-card h2 { font-size: clamp(1.2rem, 2vw, 1.5rem); line-height: 1.3; }
 .reading-desk { width: min(100% - 3rem, 86rem); }
+.reading-desk > .breadcrumbs { padding-block-end: .95rem; }
 .reading-desk .detail-header { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 1rem 2rem; padding-block: 1.5rem 1.75rem; border-color: var(--line); }
 .reading-desk .detail-header h1 { max-width: 48ch; margin: 0; font-size: clamp(1.65rem, 3vw, 2.4rem); letter-spacing: -.035em; line-height: 1.18; text-wrap: pretty; }
 .reading-action { align-self: center; padding: .75rem 1.1rem; background: var(--accent-dark); color: white; font-size: 1rem; text-decoration: none; }
@@ -1273,11 +1283,11 @@ h1 {
 .reading-desk .split-contents { position: static; padding: 0; border: 0; background: none; }
 .reading-desk .split-contents h2 { font-size: 1.25rem; margin-top: 0; }
 .reading-desk .split-contents ol { padding-left: 1.15rem; gap: .25rem; }
-.reading-desk .split-contents a { display: inline-block; padding-block: .4rem; }
+.reading-desk .split-contents a { display: inline-block; padding: .4rem .5rem; text-decoration: none; }
 .back-to-results { display: inline-block; margin-top: 1.4rem; padding-block: .65rem; border-top: 1px solid var(--line); font-size: .9rem; }
 .desk-document { min-width: 0; border-inline: 1px solid var(--line); padding-inline: 1.75rem; scroll-margin-top: 1rem; }
 .desk-document-label { margin: 0 0 1.5rem; padding-bottom: .65rem; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .8rem; font-weight: 400; text-transform: uppercase; letter-spacing: .07em; }
-.reading-desk .judgment-reading { max-width: 65ch; }
+.reading-desk .judgment-reading { max-width: 65ch; overflow-wrap: anywhere; }
 .reading-desk .record-panel { padding: 0; background: none; border: 0; }
 .reading-desk .record-panel h2 { margin-top: 0; font-size: 1.4rem; }
 .reading-desk .record-panel dt { font-size: .8rem; letter-spacing: 0; text-transform: none; }
