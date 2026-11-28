@@ -84,3 +84,32 @@ test('local preview remains noindex and unpublished article paths are absent the
  assert.equal(response.headers.get('x-robots-tag'),'noindex, nofollow');
  for(const path of heldPaths)assert.equal((await worker.fetch(new Request(`http://localhost:8792${path}`),{})).status,404);
 });
+
+test('the 56 expansion articles have public routes, unique OG artwork and privacy-aware source links', async () => {
+ const {articleExpansion} = await import('../src/data/article-expansion.generated.js');
+ const {readFile} = await import('node:fs/promises');
+ const origin = 'https://thelegalchronicles.com';
+ const images = new Set();
+ const sensitive = new Set(['945', '958', '984', '1073', '1082', '1102', '1130']);
+ const index = await (await worker.fetch(new Request(origin+'/articles'), {})).text();
+ assert.equal(articleExpansion.length,56);
+ for (const article of articleExpansion) {
+  assert.ok(index.includes('href="'+article.proposed_article_path+'"'));
+  const response = await worker.fetch(new Request(origin+article.proposed_article_path), {});
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('x-robots-tag'),'index, follow');
+  const html = await response.text();
+  const image = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
+  const path = '/article-images/2026-supreme-court/'+article.id+'.webp';
+  assert.equal(image,origin+path);
+  assert.ok(html.includes('src="'+path+'"'));
+  assert.equal((await readFile(new URL('../coming-soon'+path,import.meta.url))).toString('ascii',8,12),'WEBP');
+  images.add(image);
+  if (sensitive.has(article.id.split('-').at(-1))) {
+   assert.equal(article.judgmentPath,null);
+   assert.equal(article.judgmentId,null);
+   assert.doesNotMatch(html,/article-source-action|api\.sci\.gov\.in|href="\/judgments\/supreme-court\/2026\//);
+  }
+ }
+ assert.equal(images.size,56);
+});

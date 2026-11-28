@@ -107,7 +107,8 @@ test("homepage renders the latest catalog records from D1 without client JavaScr
   assert.match(html, /More articles/);
   assert.match(html, /<h2 id="latest-title">Latest judgments<\/h2>/);
 
-  assert.doesNotMatch(html, /<script(?! type="application\/ld\+json")/);
+  assert.match(html, /<script type="module" src="\/home-article-scroll\.js"><\/script>/);
+  assert.match(html, /href="\/articles\/2026-insc-1178"/);
   assert.doesNotMatch(html, /class="eyebrow"/);
 });
 

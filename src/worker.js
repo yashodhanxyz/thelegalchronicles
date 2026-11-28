@@ -1,3 +1,4 @@
+import { articleExpansion } from './data/article-expansion.generated.js';
 import { authorProfile, correctionsEmail, editorialPolicySections } from './data/publication.js';
 import { jsonLd, pageGraph } from './seo.js';
 import { articleImages } from './data/article-images.generated.js';
@@ -147,7 +148,7 @@ function pageShell({ title, description, canonical, robots = "index, follow", cu
     <meta name="twitter:image" content="${escapeHtml(socialImage)}">
     <meta name="twitter:image:alt" content="${escapeHtml(image?.alt || 'The Legal Chronicles — independent legal publishing')}">
     <script type="application/ld+json">${jsonLd(graph)}</script>
-    <link rel="stylesheet" href="/catalog.css?v=20261124-7">
+    <link rel="stylesheet" href="/catalog.css?v=20261128-articles">
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to main content</a>
@@ -577,11 +578,43 @@ async function homePage(env, articleReview = false) {
       <p>No verified judgment records are available yet.</p>
     </section>`;
 
-  const homeArticleSet=articleReview?articleDrafts:publicArticles;
-  const featuredArticle=homeArticleSet.find(a=>a.id==='c936c42b') || homeArticleSet[0];
-  const companionArticles=['c81c0290','c672bd54',...homeArticleSet.map(a=>a.id).filter(id=>id!==featuredArticle?.id&&id!=='c81c0290'&&id!=='c672bd54')].slice(0,9).map(id=>homeArticleSet.find(a=>a.id===id)).filter(Boolean);
-  const homeImage=(a,featured=false)=>{const image=articleImages[a.id];return image?`<img src="${escapeHtml(featured?image.src:image.small)}" srcset="${image.variants.map(v=>`${escapeHtml(v.src)} ${v.width}w`).join(", ")}" sizes="${featured?'(min-width: 1424px) 886px, (min-width: 960px) calc((100vw - 76px) * .6667), calc(100vw - 20px)':'(max-width: 540px) 96px, 180px'}" width="1536" height="1024" alt="" ${featured?'fetchpriority="high"':'loading="lazy"'} decoding="async">`:'';};
-  const editorialLead=featuredArticle?`<section class="home-editorial" aria-labelledby="featured-label"><h2 id="featured-label" class="home-section-label">Featured article</h2><article class="home-featured"><a class="home-art-link" href="${escapeHtml(featuredArticle.proposed_article_path)}" aria-label="${escapeHtml(featuredArticle.title)}">${homeImage(featuredArticle,true)}</a><h1><a href="${escapeHtml(featuredArticle.proposed_article_path)}">${escapeHtml(featuredArticle.title)}</a></h1><p>${escapeHtml(featuredArticle.description)}</p></article><div class="home-section-heading"><h2 class="home-section-label">More articles</h2></div><div class="home-companions">${companionArticles.map(a=>`<article><a class="home-art-link" href="${escapeHtml(a.proposed_article_path)}" aria-label="${escapeHtml(a.title)}">${homeImage(a)}</a><div><h3><a href="${escapeHtml(a.proposed_article_path)}">${escapeHtml(a.title)}</a></h3><p>${escapeHtml(a.description)}</p></div></article>`).join('')}</div></section>`:'';
+  const latestArticles = articleExpansion;
+  const featuredArticle = latestArticles[0];
+  const companionArticles = latestArticles.slice(1, 10);
+  const homeImage=(a,featured=false)=>{
+    if (a.id.startsWith('2026-insc-')) {
+      return `<img src="${editorialArtworkPath(a.id)}" width="720" height="480" alt="" ${featured ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
+    }
+    const image=articleImages[a.id];return image?`<img src="${escapeHtml(featured?image.src:image.small)}" srcset="${image.variants.map(v=>`${escapeHtml(v.src)} ${v.width}w`).join(", ")}" sizes="${featured?'(min-width: 1424px) 886px, (min-width: 960px) calc((100vw - 76px) * .6667), calc(100vw - 20px)':'(max-width: 540px) 96px, 180px'}" width="1536" height="1024" alt="" ${featured?'fetchpriority="high"':'loading="lazy"'} decoding="async">`:'';};
+  const articleDate = (article) => {
+    const date = article.published_at || RELEASE_DATE;
+    return date ? `<time datetime="${escapeHtml(date)}" aria-label="Published ${escapeHtml(formatDate(date))}">${escapeHtml(formatDate(date))}</time>` : '';
+  };
+  const companionCard = (article) => {
+    const path = escapeHtml(article.proposed_article_path);
+    const title = escapeHtml(article.title);
+    return `<article><a class="home-art-link" href="${path}" aria-label="${title}">${homeImage(article)}</a><div><h3><a href="${path}">${title}</a></h3>${articleDate(article)}<p>${escapeHtml(article.description)}</p></div></article>`;
+  };
+  const remainingArticles = latestArticles.length ? [...latestArticles.slice(10), ...publicArticles] : [];
+  const editorialLead = featuredArticle ? `
+    <section class="home-editorial" aria-labelledby="featured-label">
+      <h2 id="featured-label" class="home-section-label">Featured article</h2>
+      <article class="home-featured">
+        <a class="home-art-link" href="${escapeHtml(featuredArticle.proposed_article_path)}" aria-label="${escapeHtml(featuredArticle.title)}">${homeImage(featuredArticle, true)}</a>
+        <h1><a href="${escapeHtml(featuredArticle.proposed_article_path)}">${escapeHtml(featuredArticle.title)}</a></h1>
+        ${articleDate(featuredArticle)}
+        <p>${escapeHtml(featuredArticle.description)}</p>
+      </article>
+      <div class="home-section-heading">
+        <h2 class="home-section-label">More articles</h2>
+        ${latestArticles.length ? '<a href="/articles">View all articles</a>' : ''}
+      </div>
+      <div class="home-companions">${companionArticles.map(companionCard).join('')}</div>
+      ${remainingArticles.length ? `
+        <div class="home-companions" id="home-additional-articles">${remainingArticles.map(companionCard).join('')}</div>
+        <div id="home-article-scroll-marker" aria-hidden="true"></div>
+        <script type="module" src="/home-article-scroll.js"></script>` : ''}
+    </section>` : '';
   const content = `
     <main id="main" tabindex="-1" class="home-shell home-publication">
       <div class="home-grid">
@@ -1260,7 +1293,7 @@ async function sitemap(env, section = 'index') {
   }
   let urls;
   if (section === 'articles') {
-    urls = publicArticles.map(article => `<url><loc>${SITE_ORIGIN}${escapeHtml(article.proposed_article_path)}</loc><lastmod>${RELEASE_DATE}</lastmod></url>`).join('');
+    urls = [...publicArticles, ...articleExpansion].map(article => `<url><loc>${SITE_ORIGIN}${escapeHtml(article.proposed_article_path)}</loc><lastmod>${article.published_at || RELEASE_DATE}</lastmod></url>`).join('');
   } else if (section === 'judges') {
     const result = await env.DB.prepare(`SELECT j.slug FROM judges j JOIN judge_profiles p ON p.judge_id=j.id ORDER BY j.slug`).all();
     urls = (result.results || []).map(judge => `<url><loc>${SITE_ORIGIN}/judges/supreme-court/${escapeHtml(judge.slug)}</loc></url>`).join('');
@@ -1273,7 +1306,7 @@ async function sitemap(env, section = 'index') {
 }
 
 function llmsTxt() {
-  const articleLinks=publicArticles.map(article=>`- [${article.title}](https://thelegalchronicles.com${article.proposed_article_path}): ${article.description}`).join("\n");
+  const articleLinks=[...articleExpansion, ...publicArticles].map(article=>`- [${article.title}](https://thelegalchronicles.com${article.proposed_article_path}): ${article.description}`).join("\n");
   return textResponse(`# The Legal Chronicles
 
 > A judgment-first legal publication that preserves source material and clearly separates original records from editorial explanation.
@@ -1282,7 +1315,7 @@ function llmsTxt() {
 
 - [Homepage](https://thelegalchronicles.com/): publication overview and latest records.
 - [Supreme Court judgment catalog](https://thelegalchronicles.com${COURT_CATALOG}): browse canonical records by case, citation, judge and decision details.
-- [Articles](https://thelegalchronicles.com/articles): ${publicArticles.length} AI-assisted explainers with source links and explicit review limits.
+- [Articles](https://thelegalchronicles.com/articles): ${publicArticles.length + articleExpansion.length} AI-assisted explainers with source links and explicit review limits.
 - [About the author](https://thelegalchronicles.com/authors/${authorProfile.slug}): author biography and published explainers.
 - [Editorial policy](https://thelegalchronicles.com/editorial-policy): source checks, AI use, scope and correction standards.
 - [Corrections](https://thelegalchronicles.com/corrections): report factual or source issues.
@@ -1326,7 +1359,129 @@ function articleArtwork(id, thumbnail = false, caseName = '', eager = false) {
   return `<figure class="${thumbnail ? 'article-artwork-thumbnail' : 'article-artwork'}"><img src="${escapeHtml(thumbnail ? image.small : image.src)}" srcset="${image.variants.map(v=>`${escapeHtml(v.src)} ${v.width}w`).join(", ")}" sizes="${thumbnail ? '160px' : '(min-width: 1424px) 1078px, (min-width: 960px) calc(100vw - 346px), calc(100vw - 48px)'}" width="${image.width}" height="${image.height}" alt="${thumbnail ? '' : escapeHtml(image.alt)}" loading="${eager ? 'eager' : 'lazy'}"${eager ? ' fetchpriority="high"' : ''} decoding="async">${thumbnail ? '' : `<figcaption><span class="article-artwork-case">${escapeHtml(caseName)}</span></figcaption>`}</figure>`;
 }
 
+function editorialArtworkPath(id) {
+  return `/article-images/2026-supreme-court/${id}.webp`;
+}
+
+function editorialArtwork(article, thumbnail = false, caseName = '', eager = false) {
+  return `<figure class="${thumbnail ? 'article-artwork-thumbnail' : 'article-artwork'}"><img src="${editorialArtworkPath(article.id)}" width="720" height="480" alt="${thumbnail ? '' : escapeHtml(article.alt)}" decoding="async"${thumbnail && !eager ? ' loading="lazy"' : ''}${eager ? ' fetchpriority="high"' : ''}>${thumbnail ? '' : `<figcaption><span class="article-artwork-case">${escapeHtml(caseName)}</span></figcaption>`}</figure>`;
+}
+
+function editorialProse(value) {
+  let html = '';
+  let offset = 0;
+  for (const match of value.matchAll(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*/g)) {
+    html += escapeHtml(value.slice(offset, match.index));
+    const [, label, href, bold, emphasis] = match;
+    if (href) {
+      const link = new URL(href);
+      const destination = link.origin === SITE_ORIGIN ? link.pathname + link.search + link.hash : link.href;
+      html += `<a href="${escapeHtml(destination)}">${escapeHtml(label)}</a>`;
+    } else {
+      html += bold ? `<strong>${escapeHtml(bold)}</strong>` : `<em>${escapeHtml(emphasis)}</em>`;
+    }
+    offset = match.index + match[0].length;
+  }
+  return html + escapeHtml(value.slice(offset));
+}
+
+function articleListCard({ path, title, date, citations, description, artwork, featured, heading = 'h2' }) {
+  return `<li${featured?' class="article-list-featured"':''}><article><a class="article-list-image" href="${escapeHtml(path)}" aria-label="${escapeHtml(title)}">${artwork}</a><div class="article-list-copy">${featured?'<p class="article-list-label">Featured article</p>':''}<p class="article-list-meta"><time datetime="${escapeHtml(date)}">${escapeHtml(formatDate(date))}</time> · ${escapeHtml(citations)}</p><${heading}><a href="${escapeHtml(path)}">${escapeHtml(title)}</a></${heading}><p class="article-list-description">${escapeHtml(description)}</p></div></article></li>`;
+}
+
+function expansionArticleListing(articles) {
+  if (!articles.length) return '';
+  const cards = articles.map((article, i) => articleListCard({
+    path: `/articles/${article.id}`,
+    title: article.title,
+    date: article.date,
+    citations: article.citations || article.citation,
+    description: article.description,
+    artwork: editorialArtwork(article, true, '', i === 0),
+    featured: i === 0,
+    heading: 'h3',
+  })).join('');
+  return `<section aria-labelledby="editorial-batch"><h2 id="editorial-batch">Latest judgment explainers</h2><p class="article-index-scope">${articles.length} illustrated Supreme Court judgment explainers.</p><ol class="article-draft-list">${cards}</ol></section><h2>August 2026 collection</h2>`;
+}
+
+function articleReader({ title, caseName, summary, byline, body, sections, caseDetails, citations, judgmentPath, provenance, adjacentArticles }) {
+  return [
+    `<nav class="breadcrumbs article-breadcrumbs" aria-label="Breadcrumb"><ol><li><a class="breadcrumb-home" href="/" aria-label="Home"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9"/></svg></a></li><li><a href="/articles">Articles</a></li><li><span aria-current="page">${escapeHtml(caseName)}</span></li></ol></nav>`,
+    `<main id="main" tabindex="-1" class="article-reader"><article>`,
+    `<header><h1>${escapeHtml(title)}</h1><div class="article-byline">${byline}</div><p class="article-summary">${summary}</p></header>`,
+    `<div class="article-reading-layout"><div class="article-body">${body}</div>`,
+    `<aside class="article-sidebar" aria-label="Article navigation and case details">`,
+    `<nav class="article-contents" aria-label="In this article"><h2>In this article</h2><ol>${sections.map(([id,h])=>`<li><a href="#${id}">${escapeHtml(h)}</a></li>`).join('')}</ol></nav>`,
+    `<section aria-labelledby="case-details"><h2 id="case-details" tabindex="-1">Case at a glance</h2><dl class="article-case-details">${caseDetails.map(([k,v])=>`<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('')}</dl></section>`,
+    `</aside></div>`,
+    judgmentPath ? [
+      `<div class="article-closing"><section class="article-next-step" aria-labelledby="read-judgment"><p class="article-eyebrow">The original decision</p><h2 id="read-judgment">Go deeper into the judgment</h2><p class="article-source-intro">Read the Court’s reasoning, operative directions and the captured SCR report in full.</p><p>${escapeHtml(caseName)}</p><p class="article-case-line">${escapeHtml(citations)}</p>`,
+      `${provenance ? `<p class="article-source-provenance">${provenance}</p>` : ''}`,
+      `<a class="article-source-action" href="${escapeHtml(judgmentPath)}">Read the full judgment <span aria-hidden="true">↗</span></a></section></div>`,
+    ].join('') : `<div class="article-closing"><section class="article-next-step" aria-labelledby="read-judgment"><h2 id="read-judgment">Source note</h2><p>The court records are cited by date and paragraph. Direct links are withheld to protect the privacy of people involved in this case.</p></section></div>`,
+    `${adjacentArticles}</article></main>`,
+  ].join('');
+}
+
+function articlePagination(previousArticle, nextArticle) {
+  return `<nav class="article-pagination" aria-label="More articles">${previousArticle?`<a rel="prev" href="${escapeHtml(previousArticle.proposed_article_path)}"><span class="article-pagination-direction"><span aria-hidden="true">←</span> Previous article</span><strong>${escapeHtml(previousArticle.title)}</strong></a>`:'<div></div>'}${nextArticle?`<a rel="next" href="${escapeHtml(nextArticle.proposed_article_path)}"><span class="article-pagination-direction">Next article <span aria-hidden="true">→</span></span><strong>${escapeHtml(nextArticle.title)}</strong></a>`:''}</nav>`;
+}
+
+function expansionArticleDetail(url, article, index) {
+  const [caseLine, decisionLine, benchLine] = article.metadata;
+  const [caseName, ...citations] = caseLine.replace(/^\*\*Case\*\* /, '').split(' · ');
+  const [decision, ...caseNumbers] = decisionLine.replace(/^\*\*Decided\*\* /, '').split(' · ');
+  const bench = benchLine.replace(/^\*\*[^*]+\*\* /, '');
+  const sections = [['case-details', 'Case at a glance']];
+  const body = [];
+  let section;
+  for (const block of article.body) {
+    if (block.startsWith('## ')) {
+      const id = `section-${sections.length}`;
+      const heading = block.slice(3);
+      sections.push([id, heading]);
+      section = { id, heading, paragraphs: [] };
+      body.push(section);
+    } else if (section && !block.startsWith('*AI-assisted')) {
+      section.paragraphs.push(block);
+    } else {
+      body.push(block);
+    }
+  }
+  const position = index.findIndex(({ id }) => id === article.id);
+  const neighbor = (offset) => {
+    const draft = index[position + offset];
+    return draft && { title: draft.title, proposed_article_path: `/articles/${draft.id}` };
+  };
+  const paragraph = (block) => `<p>${editorialProse(block)}</p>`;
+  const content = articleReader({
+    title: article.title, caseName, summary: editorialProse(article.lead),
+    byline: `<p>Published <time datetime="${article.published_at}">${escapeHtml(formatDate(article.published_at))}</time></p>`,
+    body: editorialArtwork(article, false, caseName) + body.map((block) => typeof block === 'string'
+      ? paragraph(block)
+      : `<section aria-labelledby="${block.id}"><h2 id="${block.id}" tabindex="-1">${editorialProse(block.heading)}</h2>${block.paragraphs.map(paragraph).join('')}</section>`).join(''),
+    sections,
+    caseDetails: [['Case', caseName], ['Citations', citations.join(' · ')], ['Court', 'Supreme Court of India'], ['Judgment delivered', decision], ...(caseNumbers.length ? [['Case numbers', caseNumbers.join(' · ')]] : []), ['Bench as recorded', bench]],
+    citations: citations.join(' · '), judgmentPath: article.judgmentPath,
+    adjacentArticles: articlePagination(neighbor(-1), neighbor(1)),
+  });
+  const robots = isLocalArticleReview(new Request(url)) ? 'noindex, nofollow' : 'index, follow';
+  const response = htmlResponse(pageShell({
+    title: `${article.title} | ${SITE_NAME}`,
+    description: article.lead,
+    image: { src: editorialArtworkPath(article.id), alt: article.alt },
+    canonical: SITE_ORIGIN + article.proposed_article_path,
+    article: { ...article, citation: article.judgmentPath || article.citation },
+    robots,
+    content,
+  }), 200, robots);
+  if (robots === 'noindex, nofollow') response.headers.set('cache-control', 'no-store');
+  return response;
+}
+
 function articleReviewPage(url) {
+  const expansionArticle = articleExpansion.find(article => article.proposed_article_path === url.pathname);
+  if (expansionArticle) return expansionArticleDetail(url, expansionArticle, articleExpansion);
   const index = url.pathname === '/articles' || url.pathname === '/articles/';
   const visibleArticles = isLocalArticleReview(new Request(url)) ? articleDrafts : publicArticles;
   const article = visibleArticles.find(a => a.proposed_article_path === url.pathname);
@@ -1334,7 +1489,7 @@ function articleReviewPage(url) {
   let content;
   if (index) {
     const listingArticles=[visibleArticles.find(a=>a.id==='c936c42b'),...visibleArticles.filter(a=>a.id!=='c936c42b')].filter(Boolean);
-    content = `<main id="main" tabindex="-1" class="article-index"><header class="article-index-header"><div><p class="article-eyebrow">Ideas and explanations</p><h1>Articles</h1><p>Understand the decisions shaping the law.</p></div><p class="article-index-collection">August 2026<span>${listingArticles.length} judgment explainers</span></p></header><p class="article-index-scope">From judgments in our collection dated 3–12 August 2026. This selection does not cover every Supreme Court decision that month.</p><ol class="article-draft-list">${listingArticles.map((a,i)=>`<li${i===0?' class="article-list-featured"':''}><article><a class="article-list-image" href="${escapeHtml(a.proposed_article_path)}" aria-label="${escapeHtml(a.title)}">${articleArtwork(a.id,true,'',i===0).replace('sizes="160px"','sizes="(min-width: 960px) 640px, (min-width: 600px) 45vw, calc(100vw - 48px)"')}</a><div class="article-list-copy">${i===0?'<p class="article-list-label">Featured article</p>':''}<p class="article-list-meta"><time datetime="${escapeHtml(a.metadata.decision_date)}">${escapeHtml(formatDate(a.metadata.decision_date))}</time> · ${escapeHtml(a.metadata.citations.join(' · '))}</p><h2><a href="${escapeHtml(a.proposed_article_path)}">${escapeHtml(a.title)}</a></h2><p class="article-list-description">${escapeHtml(a.description)}</p></div></article></li>`).join('')}</ol></main>`;
+    content = `<main id="main" tabindex="-1" class="article-index"><header class="article-index-header"><div><p class="article-eyebrow">Ideas and explanations</p><h1>Articles</h1><p>Understand the decisions shaping the law.</p></div><p class="article-index-collection">2026 collection<span>${listingArticles.length + articleExpansion.length} judgment explainers</span></p></header>${expansionArticleListing(articleExpansion)}<p class="article-index-collection">${listingArticles.length} judgment explainers</p><p class="article-index-scope">From judgments in our collection dated 3–12 August 2026. This selection does not cover every Supreme Court decision that month.</p><ol class="article-draft-list">${listingArticles.map((a,i)=>`<li${i===0?' class="article-list-featured"':''}><article><a class="article-list-image" href="${escapeHtml(a.proposed_article_path)}" aria-label="${escapeHtml(a.title)}">${articleArtwork(a.id,true,'',i===0).replace('sizes="160px"','sizes="(min-width: 960px) 640px, (min-width: 600px) 45vw, calc(100vw - 48px)"')}</a><div class="article-list-copy">${i===0?'<p class="article-list-label">Featured article</p>':''}<p class="article-list-meta"><time datetime="${escapeHtml(a.metadata.decision_date)}">${escapeHtml(formatDate(a.metadata.decision_date))}</time> · ${escapeHtml(a.metadata.citations.join(' · '))}</p><h2><a href="${escapeHtml(a.proposed_article_path)}">${escapeHtml(a.title)}</a></h2><p class="article-list-description">${escapeHtml(a.description)}</p></div></article></li>`).join('')}</ol></main>`;
   } else {
     const a=article,m=a.metadata;
     const articlePosition=visibleArticles.findIndex(item=>item.id===a.id);
@@ -1353,7 +1508,7 @@ function articleReviewPage(url) {
   const isLocalReview=isLocalArticleReview(new Request(url));
   const articleForSchema=index?undefined:{...article,published_at:RELEASE_DATE};
   const robots=isLocalReview?'noindex, nofollow':'index, follow';
-  const response=htmlResponse(pageShell({title:`${index?'Articles — August 2026':article.title} | ${SITE_NAME}`,description:index?`Explore ${visibleArticles.length} explainers for Supreme Court judgments in our collection dated 3–12 August 2026.`:article.description,canonical:`${SITE_ORIGIN}${index?'/articles':article.proposed_article_path}`,robots,content,article:articleForSchema,image:index?undefined:articleImages[article.id],breadcrumbs:index?[]:[{name:'Home',url:SITE_ORIGIN+'/'},{name:'Articles',url:SITE_ORIGIN+'/articles'},{name:article.metadata.case_name,url:`${SITE_ORIGIN}${article.proposed_article_path}`}]}),200,robots);
+  const response=htmlResponse(pageShell({title:`${index?'Articles':article.title} | ${SITE_NAME}`,description:index?`Explore ${visibleArticles.length + articleExpansion.length} explainers for Supreme Court judgments in our collection.`:article.description,canonical:`${SITE_ORIGIN}${index?'/articles':article.proposed_article_path}`,robots,content,article:articleForSchema,image:index?undefined:articleImages[article.id],breadcrumbs:index?[]:[{name:'Home',url:SITE_ORIGIN+'/'},{name:'Articles',url:SITE_ORIGIN+'/articles'},{name:article.metadata.case_name,url:`${SITE_ORIGIN}${article.proposed_article_path}`}]}),200,robots);
   if(isLocalReview) response.headers.set('cache-control','no-store');
   return response;
 }
