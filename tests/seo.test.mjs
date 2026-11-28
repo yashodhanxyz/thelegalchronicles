@@ -27,7 +27,7 @@ test('homepage emits a parseable, crawlable site graph and the launch layout',as
  assert.ok(html.includes('Latest judgments'));
  const primaryNav=html.match(/<nav aria-label="Primary navigation">([\s\S]*?)<\/nav>/)?.[1]||'';
  assert.equal((primaryNav.match(/href="\/articles">Articles<\/a>/g)||[]).length,1);
- assert.equal((html.match(/class="home-companions"/g)||[]).length,1);
+ assert.equal((html.match(/class="home-companions"/g)||[]).length,2);
  assert.ok(!html.includes('Law in the public record, for a more informed India.'));
  assert.ok(graph['@graph'].some(e=>e['@type']==='Organization'&&e.name==='The Legal Chronicles'));
  assert.ok(graph['@graph'].some(e=>e['@type']==='WebSite'&&e.url==='https://thelegalchronicles.com'));
@@ -81,7 +81,7 @@ test('robots and llms.txt expose discovery routes while keeping APIs and withhel
  const llms=await worker.fetch(new Request('https://thelegalchronicles.com/llms.txt'),{});
  const text=await llms.text();
  assert.equal(llms.status,200);
- assert.ok(text.includes('17 AI-assisted explainers'));
+ assert.ok(text.includes('73 AI-assisted explainers'));
  assert.ok(text.includes('have not undergone independent human legal review'));
  for(const article of articleDrafts)assert.ok(text.includes(`https://thelegalchronicles.com${article.proposed_article_path}`));
  assert.ok(!text.includes('417b8667'));
